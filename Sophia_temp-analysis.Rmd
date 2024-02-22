@@ -1,0 +1,540 @@
+---
+title: "Sophia_temp-analysis"
+author: "Allison Davis and Sophia McKelvey"
+date: "2024-02-22"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 5
+    toc_float:
+      collapsed: FALSE
+      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Temperature experiment
+
+*Purpose:* Our interest lies in whether sexually selected traits have deleterious effects on males' ability to tolerate change. This is from an observation of males dying when sampling during hot months but females surviving fine. 
+
+*Hypothesis:* (1) Sexually selected traits decrease resistance to environmental change across species; and (2) courtship displays further decrease resistance to environmental change within a species. 
+
+*Predictions:*
+  - Males of fish with elaborate traits have a narrower thermal tolerance--i.e. lower thermal maximums and higher thermal minimums--compared to females of these species.
+  - Males of fish without elaborate traits will have a similar tolerance to females of the same species.
+  - Males performing courtship displays have a narrower thermal tolerance compared to males using coercion (within swordtails).
+  
+
+***
+
+
+# Data 
+
+We performed crtical temperature assays in which we exposed fish in groups of about 8 to gradually increasing or decreasing temperatures. Individual critical temperatures were recorded at the time of loss of equilibrium (LOE). We will then compare these temperatures, and the total thermal tolerance (CTmax-CTmin), both within species and between species. 
+
+To work with the data, we first need to create a github repository, upload a csv of our data, and then pull the data down into this Rmd to analyse it. 
+
+
+You first need to call you data from the internet (github) in order to run stats in Rstudio. Your data should be saved as a csv file, and uploaded to your github repository (github project). On github, click on your project, click on the csv file, then hit "raw" --you will need to copy the html of the raw file to use in Rstudio.
+
+To pull your data into Rstudio, you will need to use the following functions/packages: library(), curl package, curl(), read.csv()
+
+  * If you haven't done so already, install the curl package. You can install a package in two ways:
+      1) use `install.packages()` with the name of the package in the brackets
+      
+      2) go to your packages tab in the lower right corner (Files Plots **Packages** Help Viewer), hit install, and type in the name of the package before hitting the install button again.
+  
+
+
+```{r}
+#load in the curl package
+
+
+#pull the data from the internet using your html and assign a name
+
+
+#force your data to be read as a csv
+
+
+```
+
+Now we want to make sure your data was pulled correctly, and we also want to create separate data frames for each of the species. This way we can do stats on four data frames: raw data (original file we pulled from the internet), sailfin (all the info but just for P. latipinna), mosquitofish (all the info but just for G. affinis), and swordtails (all the info but just for the X. nigrensis).
+
+For this step, you will need: head(), data frame selection (aka data frame[data frame$name .....])
+  
+  * Make sure you assign a new name for your new data frames! If you keep the name the same for all three data frames, R will overwrite (aka erase) your data!
+  * For more info on how to select from a data frame, see: https://cran.r-project.org/web/packages/lessR/vignettes/Extract.html#:~:text=The%20most%20general%20way%20to,d%5Brows%2C%20columms%5D%20.
+  
+  
+```{r}
+#check the head of your raw dataframe to make sure it was read in correctly
+#NOTE: whenever you read in a csv, R automatically adds X.U.FEFF to the first column. This is normal!
+
+
+#create a dataframe for sailfin by selecting data from your raw dataframe with P. latipinna as the species.
+
+
+#create a dataframe for mosquitofish by selecting data from your raw dataframe with G. affinis as the species.
+
+
+#create a dataframe for swordtails by selecting data from your raw dataframe with X. nigrensis as the species.
+
+
+#check the head of your new  dataframes to make sure it selected correctly.
+
+
+
+```
+
+
+
+***
+
+
+# Analysis
+
+## Summary stats 
+
+Now we get to the fun part -actually analyzing our data! While most people want to jump right in to the most complicated stat models, it's actually better practice to get an idea of what your data look like. Getting summary statistics (mean, median, mode etc) and visualizing your data give you an idea of how your data relate to each other. This will make the conclusions from the more complicated stats easier to understand.
+
+So let's begin with summary statistics. For this you will need: rstatix package, get_summary_stats()
+
+  * Make sure to install the rstatix package. See the beginning of this Rmd on how to install.
+  
+  * The summary stats you want are: mean, standard deviation, median, and interquartile range.
+  
+  * For more details on how to use get_summary_stats() see: https://www.datanovia.com/en/lessons/wilcoxon-test-in-r/#summary-statistics-2
+  
+      + ex: get_summary_stats(weight, type ="median", data=mice)
+          + the %>% used on the website requires another package (tidyverse), but is just specifying the data frame to use; if you're not familiar with tidyverse, instead use data=name in function OR specify by mice$weight.
+  
+  * You may need to switch from a 'wide' format dataframe to a 'long' format dataframe in order from some of these functions to work. For this you will use the 'pivot_longer()' and 'pivot_wider()' functions from tidyverse (don't worry, if you're not familar with tidyverse, you can just follow the info in the link). For more info on how to use, see: https://tidyr.tidyverse.org/articles/pivot.html
+
+
+```{r}
+#load in the rstatix package 
+
+
+#get summary statistics for all data
+
+
+#get summary statistics for the sailfin data  #NOTE: want to get an idea of how each species looks, so we'll separate them.
+
+
+#get summary statistics for the mosquitofish data
+
+
+#get summary statistics for the swordtail data
+
+
+
+
+```
+
+***
+
+
+### Summary plots
+
+While numbers are great, a picture is often easier to understand. So let's graph out our data to get a better idea of what's going on. Box plots are a good graph to use, since it will show us the median and range of the data. 
+
+We'll focus on each species separately, then look at them all together. Our main goal is to see if males and females differ in their thermal tolerance.
+
+You may need to switch from a 'wide' format dataframe to a 'long' format dataframe in order from some of these functions to work. For this you will use the 'pivot_longer()' and 'pivot_wider()' functions from tidyverse (don't worry, if you're not familar with tidyverse, you can just follow the info in the link). For more info on how to use, see: https://tidyr.tidyverse.org/articles/pivot.html
+
+For this you will use: boxplot(), line() [can also use ggplot if you're more comfortable with that]
+
+  * For more info on boxplot() see: https://www.statmethods.net/graphs/boxplot.html
+  
+  * For more info on line() see: https://r-graph-gallery.com/line-plot.html
+  
+  * We want our boxplots to temperature by sex for within species, and temperature by sex AND species for between species. When we want to display our y value (temp) by two x values (sex and species), we denote this as y~x1*x2. We'll repeat this for our Tmax, Tmin, and Ttot temperature vaues.
+  
+  * Remember to add x and y lables! 
+
+
+```{r}
+#create a box plot showing max temperature by sex in sailfin
+
+# repeat for min temperature, and Ttot
+
+
+
+#create a box plot showing max temperature by sex in mosquitofish
+
+# repeat for min temperature, and Ttot
+
+
+
+#create a box plot showing max temperature by sex in swordtail
+
+# repeat for min temperature, and Ttot
+
+#create a box plot showing max temperature by sex AND size category in swordtails
+
+# repeat for min temperature, and Ttot
+
+
+
+#create a box plot showing max temperature by sex AND species (all)
+
+# repeat for min temperature, and Ttot
+
+
+
+
+#create a line plot showing temperature by sex AND species
+
+# repeat for min temperature, and Ttot
+
+
+```
+
+
+Now that you've done basic statistics, how does your data look? Write about the trends you see below.
+
+<font color="deeporchid4"> ***FIRST LOOK AT DATA:*** </font>
+
+
+***
+
+
+## Comparisons
+
+
+In our analysis, we want to answer the following questions:
+
+1) How do males and females differ in their max, min and overall thermal tolerance?
+
+2) How do the species differ? Do males and females only differ in particular species? 
+
+3) How do courting species differ from non-courting species? Is there a difference regardless of sex? Is there a difference between the two types of males even within the same species (eg swordtails)?
+
+
+### Normality check 
+
+
+Before we begin, we need to check if our data follows a normal distribution. A lot of the parametric tests (t-tests, ANOVAs, etc) have normality as a requirement, so we need confirm our data fits this. If not, we might need to transform the data or perform non-parametric tests. 
+
+You will need to check for normality across the entire dataset. We will do this three ways: using a Shariro-Wilke test, histograms, and QQ plots.
+
+For this you will use: dplyr package, shapiro.test(), hist(), qqnorm(), and qqline()
+
+  * For more info on the Shapiro-Wilke tests, see: https://www.statology.org/shapiro-wilk-test-r/
+  
+  * For more info on histograms, see: https://www.datamentor.io/r-programming/histogram
+  
+  * For more info on QQ plots, see: http://www.sthda.com/english/wiki/qq-plots-quantile-quantile-plots-r-base-graphs
+  
+  
+```{r}
+#perform SW tests for entire dataset
+
+
+#Create histogram for entire dataset
+
+
+#Create QQplot for entire dataset
+
+
+```
+
+How does your data look? Normal, sorta normal, super not normal? Write about the trends you see below.
+
+<font color="deeporchid4"> ***NORMALITY CHECK:*** </font>
+
+
+
+***
+
+
+
+
+### Analysis
+
+
+To address our questions, we will first examine our data in small chunks (within species), then take a look at the whole picture (between species) using mixed effects models.
+
+
+NOTE: if the data was not normal, we need to transform it before continuing. Typical transformations include log or square root transformations. Transform data, and retest for normality. You can ignore this if the data was normal.
+
+```{r}
+#transform data
+
+#redo SW test
+
+#redo histogram
+
+#redo QQplot
+
+#make sure to recreate the two species dataframes with tranformed data
+
+
+```
+
+***
+
+#### Within species
+
+First, let's look within species.
+
+We'll be using generalized linear mixed models. Mixed effects models come in two flavors: linear mixed effects and generalized linear mixed effects. In essence, linear models are used on "normal" data while generalized models can take into account small samples or non-normal distributions. 
+
+Both types of models have two types of effects: fixed effects and random effects. Fixed effects are explanatory variables (x values) that have a fixed or finite number of levels. Random effects are also explanatory variables, but that have an infinite number of levels OR are variables that we aren't necessarily interested in, but want to account for any influence they have on the dependent variable. To illustrate the difference, check out this video: https://www.youtube.com/watch?v=VhMWPkTbXoY&t. In this case oat type and nitrogen concentrations are fixed effects because they are explanatory variables with either 3 or 4 levels (only 3 types of oats and only 4 concentrations of nitrogen) and blocks is a random effect because there was an infinite number of possible sites they could've picked to make a block. 
+
+For our experiment, take a second to think, what are our fixed effects and random effects? Type your answer below.
+
+<font color= "deeporchid4"> ***FIXED AND RANDOM EFFECTS:***</font>
+
+
+
+
+
+***
+
+Ok, let's get stuck into mixed models. For mixed models, you'll need to use the following packages: lme4 and lmerTest. You will need to install and load them up (using the library() function).
+
+Since our dataset is small, you will use the glmer() function. You will follow it up with the summary() function.
+
+  * glmer uses the format yvalues~xvalue*xvalue[more if needed] + (1|random effect), data =dataframe
+  
+  * remember to name your mixed model so you can use it in your summary function!
+  
+```{r}
+
+#load the lme4 and lmerTest packages
+
+
+#perform a mixed model on the max temp by species in sailfin (don't for the random effects!)
+
+
+#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
+
+
+
+
+
+
+#perform a mixed model on the min temp by species in sailfin (don't for the random effects!)
+
+
+#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
+
+
+
+
+
+
+
+#perform a mixed model on the tot temp by species in sailfin (don't for the random effects!)
+
+#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
+
+
+
+
+#perform a mixed model on the max temp by mating in swordtails (don't for the random effects!)
+     #here we are looking at courting vs coercive males
+
+#repeat for min and tot temp
+
+
+```
+
+
+***
+
+
+#### Between species
+
+Now, let's take a look between species.
+
+Here we want to see if there are differences between the species within each sex. For example, did males in a courting species differ than males in a non-courting speices? Since we are only looking at one sex at a time, you may need to create two new dataframes from the raw data of only males and only females. We'll still be using mixed models here!
+
+
+
+```{r}
+#create dataframes for just males and just females
+
+
+#perform a mixed model on max temp by species for males
+
+#repeat for females
+
+
+
+#perform a mixed model on min temp by species for males
+
+#repeat for females
+
+
+
+#perform a mixed model on tot temp by species for males
+
+#repeat for females
+
+```
+
+
+
+What do you see in these small chunks? Do certain temperatures give different trends within different species? What differences, if any, are there between species? How about just male or just female differences?
+
+<font color="deeporchid4"> ***SMALL CHUNK ANALYSIS:*** </font>
+
+
+***
+
+
+
+#### Big picture
+
+
+While it is nice to explore our data in the small chunks, to really address our questions we need to take a look at the whole picture. We'll use the glmms again for this.
+
+
+```{r}
+#perform a mixed model on the max temperature across sex and species 
+
+
+#repeat for min temp and tot temp
+
+
+
+
+#perform a mixed model on the max temperature across mating and species
+
+
+#repeat for min temp and tot temp
+
+
+
+
+```
+
+
+
+***
+
+
+
+#### Size
+
+For our previous models, we are accounting for the variation of size, but it isn't the factor of interest. It is possible that size is more of a driving factor for thermal tolerance differences than sex or courtship behaviors. Here, we will do another mixed model but the only independent trait of interest is size. We'll run two models: one with just temp and size, and another with additional random effects.
+
+
+```{r}
+#performed a mixed model on max temp by size (ID only random effect)
+
+#repeat for min and tot temp
+
+
+
+#performed a mixed model on max temp by size (species, sex, and ID as random effects)
+
+#repeat for min and tot temp
+
+
+
+```
+
+***
+
+#### Results
+
+What did you find? Did certain temperatures differ between sexes? Did they differ between species? If there was an interaction effect, what does this mean? How influential was size?
+
+<font color= "deeporchid4"> ***RESULTS:***</font>
+
+
+
+
+
+
+
+
+***
+
+
+# Plots 
+
+It is always best to have visuals for the analyses you perform. This allows readers to visually grasp the comparisons you are making. Whenever possible, it is also a good idea to overlay the original datapoints so that readers can see how individuals change over trials or how the mean compares to the spread of the data (often this is done with faint grey points so as to not be too crowded on the graph). For your study, it might also be interesting to connect the same indiviual points so the audience can see the ranges of each fish. Lastly, it is important to label axes, add legends (if needed), add titles, and add or remove background grids to ensure the graph is easy to read and interpret. I tend to use ggplot to do all of this, but most can also be done in base R plotting. I'll leave it up to you to decide on which one to use and to google for instructions on how to change the aesthetics. What I'll list below is the plots you should have for your presentation (if you've done the plot already in summary stats, you can just copy it here).
+
+For some tips on ggplot: 
+  * https://r-statistics.co/Complete-Ggplot2-Tutorial-Part1-With-R-Code.html
+  * https://www.analyticsvidhya.com/blog/2022/03/a-comprehensive-guide-on-ggplot2-in-r/
+  * https://www.cedricscherer.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/
+  * http://zevross.com/blog/2014/08/04/beautiful-plotting-in-r-a-ggplot2-cheatsheet-3/
+
+For some tips on base plotting:
+  * https://towardsdatascience.com/base-plotting-in-r-eb365da06b22
+  * http://www.sthda.com/english/wiki/r-base-graphs
+  * https://hbctraining.github.io/Intro-to-R/lessons/basic_plots_in_r.html
+  * https://www.tenderisthebyte.com/blog/2021/05/09/pretty-plots-with-base-r-grahpics/
+
+
+```{r}
+#male v female max temp in sailfin
+
+#male v female max temp in mosquitofish
+
+#male v female max temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+
+
+
+#male v female min temp in sailfin
+
+#male v female min temp in mosquitofish
+
+#male v female min temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+
+
+
+#male v female tot temp in sailfin
+
+#male v female tot temp in mosquitofish
+
+#male v female tot temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+
+
+
+#male max and min temp across species
+
+#female max and min temp across species
+
+
+
+#courting v coercive max temp across species
+
+#courting v coercive min temp across species
+
+#courting v coercive tot temp across species
+
+
+
+#courting v coercive max temp within swordtail only
+
+#courting v coercive min temp within swordtail only
+
+#courting v coercive tot temp within swordtail only
+
+
+#max temp by size (might want to create one general graph and then another where it creates two lines for sex)
+
+#min temp by size (might want to create one general graph and then another where it creates two lines for sex)
+
+#tot temp by size (might want to create one general graph and then another where it creates two lines for sex)
+
+
+
+```
+
+
+***
+
+
+# Other
+
+Sooooo it could be that weight is actually a bigger factor than their length. Unfortunately, we only have average weights (so average male and average female weights per species). We can't connect them to particular individuals, so we can't use this factor the same as we've done above. Tbh not 100% sure what to do here... may be something you just talk about as obvious other contributors to the differences/future studies type thing. 
