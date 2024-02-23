@@ -1752,6 +1752,48 @@ ignore this if the data was normal.</p>
 
 #make sure to recreate the two species dataframes with tranformed data</code></pre>
 <hr />
+<div id="correcting-for-size" class="section level4">
+<h4>correcting for size</h4>
+<p>Since size is a continuous variable, we cannot use it as a random
+effect in our mixed models. So, we need to standardize individuals for
+size. For each sex in each species, we will standardize by subtracting
+the mean length from individual length and divide by the standard
+deviation. For example, if mosquitofish males have an average length of
+10.2mm and a standard deviation of 3.7, and we wanted to standardize a
+fish, Charlie, who is 8.6mm, we would calculate it as
+<code>(8.6-10.2)/3.7= -0.432</code>. This means Charlie now has a
+standardized weight value of -0.432, and makes it so that if one species
+is much bigger than another, it doesn’t bias our results. This is also
+known as <strong>z-scores</strong>.</p>
+<p>To standardize the size, you will need: mean() and sd()</p>
+<ul>
+<li>for more info on z-scores, see: <a href="https://www.r-bloggers.com/2021/06/how-to-find-z-score-in-r-easy-calculation-quick-guide/" class="uri">https://www.r-bloggers.com/2021/06/how-to-find-z-score-in-r-easy-calculation-quick-guide/</a></li>
+</ul>
+<p>To add it as a new column to your dataframe, you will need:
+cbind()</p>
+<ul>
+<li><a href="https://www.statology.org/cbind-in-r/" class="uri">https://www.statology.org/cbind-in-r/</a></li>
+</ul>
+<pre class="r"><code>#standardize male lengths in sailfin 
+
+#repeat for females
+
+
+
+#standardize male lengths in mosquitofish
+
+#repeat for females
+
+
+
+#standardize male lengths in swordtails
+
+#repeat for females
+
+
+
+#add all new columns to original dataframe; you may need to redo your species dataframes after this too</code></pre>
+</div>
 <div id="within-species" class="section level4">
 <h4>Within species</h4>
 <p>First, let’s look within species.</p>
@@ -1791,35 +1833,35 @@ summary function!</p></li>
 <pre class="r"><code>#load the lme4 and lmerTest packages
 
 
-#perform a mixed model on the max temp by species in sailfin (don&#39;t for the random effects!)
+#perform a mixed model on the max temp by sex and size in sailfin (don&#39;t for the random effects!)
 
 
-#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
-
-
-
-
-
-
-#perform a mixed model on the min temp by species in sailfin (don&#39;t for the random effects!)
-
-
-#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
+#repeat for mosquitofish and swordtails
 
 
 
 
 
 
-
-#perform a mixed model on the tot temp by species in sailfin (don&#39;t for the random effects!)
-
-#repeat for mosquitofish and swordtails (might want to run a model with all swordtail males, and then add size category as another explanitory variable)
+#perform a mixed model on the min temp by by sex and size in sailfin (don&#39;t for the random effects!)
 
 
+#repeat for mosquitofish and swordtails 
 
 
-#perform a mixed model on the max temp by mating in swordtails (don&#39;t for the random effects!)
+
+
+
+
+
+#perform a mixed model on the tot temp by by sex and size in sailfin (don&#39;t for the random effects!)
+
+#repeat for mosquitofish and swordtails 
+
+
+
+
+#perform a mixed model on the max temp by mating and size in swordtails (don&#39;t for the random effects!)
      #here we are looking at courting vs coercive males
 
 #repeat for min and tot temp</code></pre>
@@ -1837,19 +1879,19 @@ here!</p>
 <pre class="r"><code>#create dataframes for just males and just females
 
 
-#perform a mixed model on max temp by species for males
+#perform a mixed model on max temp by species and size for males
 
 #repeat for females
 
 
 
-#perform a mixed model on min temp by species for males
+#perform a mixed model on min temp by species and size for males
 
 #repeat for females
 
 
 
-#perform a mixed model on tot temp by species for males
+#perform a mixed model on tot temp by species and size for males
 
 #repeat for females</code></pre>
 <p>What do you see in these small chunks? Do certain temperatures give
@@ -1865,7 +1907,7 @@ ANALYSIS:</em></strong> </font></p>
 <p>While it is nice to explore our data in the small chunks, to really
 address our questions we need to take a look at the whole picture. We’ll
 use the glmms again for this.</p>
-<pre class="r"><code>#perform a mixed model on the max temperature across sex and species 
+<pre class="r"><code>#perform a mixed model on the max temperature across sex, size and species 
 
 
 #repeat for min temp and tot temp
@@ -1873,7 +1915,7 @@ use the glmms again for this.</p>
 
 
 
-#perform a mixed model on the max temperature across mating and species
+#perform a mixed model on the max temperature across mating, size and species
 
 
 #repeat for min temp and tot temp</code></pre>
@@ -1884,16 +1926,14 @@ use the glmms again for this.</p>
 <p>For our previous models, we are accounting for the variation of size,
 but it isn’t the factor of interest. It is possible that size is more of
 a driving factor for thermal tolerance differences than sex or courtship
-behaviors. Here, we will do another mixed model but the only independent
-trait of interest is size. We’ll run two models: one with just temp and
-size, and another with additional random effects.</p>
-<pre class="r"><code>#performed a mixed model on max temp by size (ID only random effect)
+behaviors.</p>
+<pre class="r"><code>#performed a mixed model on max temp by size and sex (ID only random effect)
 
 #repeat for min and tot temp
 
 
 
-#performed a mixed model on max temp by size (species, sex, and ID as random effects)
+#performed a mixed model on max temp by size (species and ID as random effects)
 
 #repeat for min and tot temp</code></pre>
 <hr />
