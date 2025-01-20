@@ -1,0 +1,1143 @@
+---
+title: "temp_final-analysis_JAN2025"
+author: "Allison Davis Connelly and Sophia McKelvey"
+date: "2025-01-15"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 5
+    toc_float:
+      collapsed: FALSE
+      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Temperature experiment
+
+*Purpose:* Our interest lies in whether sexually selected traits have deleterious effects on males' ability to tolerate change. This is from an observation of males dying when sampling during hot months but females surviving fine. 
+
+*Hypothesis:* (1) Sexually selected traits decrease resistance to environmental change across species; and (2) courtship displays further decrease resistance to environmental change within a species. 
+
+*Predictions:*
+  - Males of fish with elaborate traits have a narrower thermal tolerance--i.e. lower thermal maximums and higher thermal minimums--compared to females of these species.
+  - Males of fish without elaborate traits will have a similar tolerance to females of the same species.
+  - Males performing courtship displays have a narrower thermal tolerance compared to males using coercion (within swordtails).
+  
+*MAIN QUESTION(S):*
+  (1) Regardless of size differences, do males and females of the three species differ in their thermal tolerance (max, min, tot) due to sexually selected traits?
+  (2) Regardless of the size differences, do the two males and female of the swordtail species differ in their thermal tolerance (max, min, tot) due to mating strategies?
+  (3) When we include size as a factor, is it more explanatory than sex or species? This will be included in the models of questions 1 and 2.
+  
+
+***
+
+
+# Data
+
+All analyses were conducted using R version 4.4.2 
+
+## Load required libraries
+
+Remove the '#' in the code below if it is the first time installing library. 
+
+```{r}
+#install.packages("curl")             #v5.2.1
+library(curl)
+
+#install.packages("dplyr")            #v1.1.4
+library(dplyr)
+  
+#install.packages("MuMIn)              #v1.48.4
+library(MuMIn)
+
+#install.packages("lme4")             #v1.1.35.5
+library(lme4)
+
+#install.packages("lmerTest")         #v3.1.3
+library(lmerTest)
+
+#install.packages("ggplot2")          #v3.5.1
+library(ggplot2)
+
+#install.packages("DHARMa")           #v0.4.7
+library(DHARMa)
+
+#install.packages("HLMdiag")          #v0.5.0
+library(HLMdiag)
+
+#install.packages("emmeans")          #v1.10.5
+library(emmeans)
+
+#install.packages("vcd")              #v1.4.13
+library(vcd)
+
+#install.packages("sjstats")          #v0.19.0
+library(sjstats)
+
+#install.packages("sjPlot")           #v2.8.17
+library(sjPlot)
+
+
+```
+
+## Read in data.
+
+```{r}
+
+rawTempData <- curl("https://raw.githubusercontent.com/sophia-m0823/TestRStudio/main/Temp%20ID%20-%20Completed%20Data.csv")
+
+rawTempData <- read.csv(rawTempData, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(rawTempData)
+
+
+```
+
+
+***
+
+# Analysis
+
+
+## Question 1
+
+Regardless of size differences, do males and females of the three species differ in their thermal tolerance (max, min, tot) due to sexually selected traits?
+
+### CTmax
+
+```{r}
+
+#full model with interaction
+model.1a <- glm(CTmax.C ~ Sex * Species + Size.mm, data = rawTempData)
+
+
+#reduced model without interaction
+model.1b <- glm(CTmax.C ~ Sex + Species + Size.mm, data = rawTempData)
+
+
+#Test for significance of the interaction term (fixed effects)
+model.sel(model.1a, model.1b)
+  ##model.1b selected
+
+
+#check that Size.mm size improves our model
+model.1red <- glm(CTmax.C ~ Sex + Species, data=rawTempData)
+
+model.sel(model.1red, model.1b)
+  ##model.1red selected
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+summary(model.1red)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+model.1red %>%
+  emmeans(pairwise~Species) %>% 
+  summary() #will display estimates and pairwise comparisons
+
+model.1red %>%
+  emmeans(pairwise~Species) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+model.1red %>%
+  emmeans(pairwise~Sex) %>% 
+  summary()
+
+model.1red %>%
+  emmeans(pairwise~Sex) %>% 
+  plot()
+
+```
+
+### CTmin
+
+Repeat above for CTmin
+
+```{r}
+#full model with interaction
+model.2a <- glm(CTmin.C ~ Sex * Species + Size.mm, data = rawTempData)
+
+
+#reduced model without interaction
+model.2b <- glm(CTmin.C ~ Sex + Species + Size.mm, data = rawTempData)
+
+#Test for significance of the interaction term (fixed effects)
+model.sel(model.2a, model.2b)
+  ##model.2b selected
+
+
+#check that Size.mm size improves our model
+model.2red <- glm(CTmin.C ~ Sex + Species, data=rawTempData)
+
+model.sel(model.2b, model.2red)
+  ##model.2red selected
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+summary(model.2red)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+model.2red %>%
+  emmeans(pairwise~Species) %>% 
+  summary() #will display estimates and pairwise comparisons
+
+model.2red %>%
+  emmeans(pairwise~Species) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+model.2red %>%
+  emmeans(pairwise~Sex) %>% 
+  summary()
+
+model.2red %>%
+  emmeans(pairwise~Sex) %>% 
+  plot()
+
+```
+
+### Tot temp
+
+Repeat above for Tot temp
+
+```{r}
+#full model with interaction
+model.3a <- glm(T.tot ~ Sex * Species + Size.mm, data = rawTempData)
+
+
+#reduced model without interaction
+model.3b <- glm(T.tot ~ Sex + Species + Size.mm, data = rawTempData)
+
+#Test for significance of the interaction term (fixed effects)
+model.sel(model.3a, model.3b)
+  ##model.3b selected
+
+#check that Size.mm size improves our model
+model.3red <- glm(T.tot ~ Sex + Species, data=rawTempData)
+
+model.sel(model.3b, model.3red)
+  ##model.3red selected
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+summary(model.3red)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+
+model.3red %>%
+  emmeans(pairwise~Species) %>% 
+  summary() #will display estimates and pairwise comparisons
+
+model.3red %>%
+  emmeans(pairwise~Species) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+model.3red %>%
+  emmeans(pairwise~Sex) %>% 
+  summary()
+
+model.3red %>%
+  emmeans(pairwise~Sex) %>% 
+  plot()
+
+
+```
+
+
+
+### Check normality of final models
+
+
+```{r}
+
+############ CTmax ########### 
+#Simulated residuals plots using DHARMa package
+
+
+simulationOutput <- simulateResiduals(model.1red)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = rawTempData$Sex)
+plotResiduals(simulationOutput, form = rawTempData$Species)
+plotResiduals(simulationOutput, form = rawTempData$Size.mm)
+
+  ###KS significant
+
+
+########### CTmin ########### 
+#Simulated residuals plots using DHARMa package
+
+simulationOutput <- simulateResiduals(model.2red)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = rawTempData$Sex)
+plotResiduals(simulationOutput, form = rawTempData$Species)
+plotResiduals(simulationOutput, form = rawTempData$Size.mm)
+
+  ###Levene's test significant
+
+########### Tottemp ########### 
+#Simulated residuals plots using DHARMa package
+
+
+simulationOutput <- simulateResiduals(model.3red)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = rawTempData$Sex)
+plotResiduals(simulationOutput, form = rawTempData$Species)
+plotResiduals(simulationOutput, form = rawTempData$Size.mm)
+
+  ###Levene's test significant
+
+```
+
+#### Residual corrections
+
+Model 1 (CTmax) residuals did not conform to normality (failed KS test). Model 2 and 3 (CTmin and total temperature) residuals are normal but heteroscedastic. Will first calculate robust standard errors to interpret results.  
+
+An alternative approach: Create a bootstrapped model for all three models.
+
+An alternative approach: Create a bootstrapped model for model 1, and weight least squares model followed by another DHARMa check for models 2 and 3.
+
+
+```{r}
+######### Model 1 ##########
+
+library(sandwich)
+library(lmtest)
+
+#Robust inference for heteroscedasticity and non-normality
+coeftest(model.1red, vcov=vcovHC(model.1red, type = "HC3")) 
+coeftest(model.2red, vcov=vcovHC(model.2red, type = "HC3")) 
+coeftest(model.3red, vcov=vcovHC(model.3red, type = "HC3")) 
+
+```
+
+##### Interpretation of results
+
+The **estimate** represents the effect size or coefficient of a predictor (e.g. sex or species) on the response variable (temp in our case). For linear models (e.g. GLM with family=gaussian), the estimate the change in the response variable associated with a one-unit change in the predictor, holding all other predictors constant. For example, if the coefficient for speciesB is 2.45 it means that speciesB is associated with a 2.45 higher temperature compared to the reference species (speciesA), assuming all other predictors are held constant (e.g. female to female). 
+
+The **standard error** meaures the variability or uncertainty of the coefficient estimate. It quantifies how much the estimate would vary if you repeated the study many times with different samples. A smaller SE means the coefficient estimate is more precise. A large SE suggests greater uncertanty, which can result from small sample sizes, high variability in the data, or multicollinearity (predictors being highly correlated). The SE is used to compute the **z-value** and confidence intervals, which help assess whether the cofficient is significantly different from zero.
+
+The **z-value** (aka test statistic) is the ratio of the estimate to its standard error. It shows how many standard errors the estimate is away from zero (the null hypothesis value). A larger absolute z-value indicates stronger evidence against the null hypothesis. 
+
+To interpret the output:
+
+The **intercept** is the baseline value of temp when all predictors are at their reference levels (e.g. sex=female, species=A). **Sexmale** estimate indicates that being male increases/decreases the predictd temperature by the estimated units compared to females. However, check that the p-value is significant to indicate whether this is a significant change. **SpeciesB** and **SpeciesC** estimate indicates that being a different species increases/decreases the predicted temperature by the estimated units compared to being SpeciesA, when all are the same sex (ie other parameters held constant).
+
+### Interpret and visualize model results
+
+```{r}
+#to interpret model results
+
+##CTmax
+get_model_data(model.1red,type="pred", terms = c("Sex", "Species"))
+
+##CTmin
+get_model_data(model.2red,type="pred", terms = c("Sex", "Species"))
+
+##Tot temp
+get_model_data(model.3red,type="pred", terms = c("Sex", "Species"))
+
+```
+
+#### Plot results
+
+```{r}
+
+############## CTmax ############
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with species on the x, CTmax on the y, and two lines for sex
+CTMAX_results <- plot_model(model.1red, 
+             type = "pred", 
+             terms = c("Species", "Sex"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Species", "CTmax"), 
+             legend.title = c("Sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, two predictor lines for the two sexes and different graphs/facets for each species
+
+CTMAX_results2 <- plot_model(model.1b, 
+             type = "pred", 
+             terms = c("Size.mm", "Sex", "Species"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "CTmax"), 
+             legend.title = c("Sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results2
+
+
+############ CTmin ############
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with species on the x, CTmax on the y, and two lines for sex
+CTMIN_results <- plot_model(model.2red, 
+             type = "pred", 
+             terms = c("Species", "Sex"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Species", "CTmin"), 
+             legend.title = c("Sex"), title = "CTmin of males and females across all species")
+
+CTMIN_results
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, two predictor lines for the two sexes and different graphs/facets for each species
+
+CTMIN_results2 <- plot_model(model.2b, 
+             type = "pred", 
+             terms = c("Size.mm", "Sex", "Species"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "CTmin"), 
+             legend.title = c("Sex"), title = "CTmax of males and females across all species")
+
+CTMIN_results2
+
+
+
+############## Tot temp ############
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with species on the x, CTmax on the y, and two lines for sex
+TTEMP_results <- plot_model(model.3red, 
+             type = "pred", 
+             terms = c("Species", "Sex"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Species", "T.tot"), 
+             legend.title = c("Sex"), title = "Total Temp of males and females across all species")
+
+TTEMP_results
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, two predictor lines for the two sexes and different graphs/facets for each species
+
+TTEMP_results2 <- plot_model(model.3b, 
+             type = "pred", 
+             terms = c("Size.mm", "Sex", "Species"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "T.tot"), 
+             legend.title = c("Sex"), title = "Total Temp of males and females across all species")
+
+TTEMP_results2
+
+
+```
+
+
+
+### Question 1 results
+
+Models that were used (WITHOUT INTERACTION): model.1red, model.2red, model.3red.
+
+CTMAX
+- highest max temps found in P. latipinna and lowest max temps in X. nigrensis
+- Highest temps in P. latipinna at 39 deg C
+- Lowest temps in X. nigrensis at around 34.5 deg C
+- no significant difference between males and females, but species significantly differ
+
+
+CTMIN
+- lowest min temp in G. affinis at 4.5 deg C and highest min temps in X. nigrensis at around 10 deg C
+- no significant difference between males and females, but species significantly differ
+
+
+TOT.TEMP
+- highest total temperatures that all our target fish could have was found in G. affinis from 32 to almost 34 deg C
+- lowesst total temp range found in X. nigrensis at around 25 deg C
+- again, no significant difference between males and females
+- total thermal range between G. affinis and P. latipinna are not significantly different, but both are significantly different to the total thermal range of X. nigrensis. 
+
+
+***
+
+
+## Question 2
+
+Regardless of the size differences, do the two males and female of the swordtail species differ in their thermal tolerance (max, min, tot) due to mating strategies?
+
+
+```{r}
+swordtail_1 <- rawTempData[rawTempData$Species =="X. nigrensis",]
+
+```
+
+
+Also, since females don't have a mating strategy, and the size of males corresponds with their mating strategy (large=courting, small=coercive), I think it would be best/easiest for our model to create a new sex column with three factors: female, male.large, and male.small. That way we won't have to worry about one of our groups (ie females) not having a factor for mating strategy. SO let's create a new column. The size.cat column is basically what we want, since it has a value for the two males and for females, but let's make some more intuitive labels.
+
+
+```{r}
+
+swordtail_1$sex.2 <- swordtail_1$Size.cat #duplicates column
+
+#replace values in new column
+swordtail_1$sex.2 <- gsub("large", "male.large", swordtail_1$sex.2)
+swordtail_1$sex.2 <- gsub("small", "male.small", swordtail_1$sex.2)
+swordtail_1$sex.2 <- gsub("reg", "female", swordtail_1$sex.2)
+
+
+#added as character, changing to factor
+
+swordtail_1$sex.2 <- as.factor(swordtail_1$sex.2)
+swordtail_1$sex.2 <- factor(swordtail_1$sex.2, levels = c("male.large", "male.small", "female"))
+
+```
+
+
+Now for the model
+
+### CTmax
+
+Remember, to address mating style and sex we'll use the new column, sex.2
+
+```{r}
+
+#wfull model with size; NOTE: there is no interaction effect here, since sex and mating style are just one factor now.
+
+model.4a <- glm(CTmax.C ~ sex.2 + Size.mm, data = swordtail_1)
+
+
+
+#reduced model without size
+
+model.4b <- glm(CTmax.C ~ sex.2, data = swordtail_1)
+
+#Model selection
+model.sel(model.4a, model.4b)
+  ##model.4b selected
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+## replace A with either the full or reduced model name
+summary(model.4b)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+model.4b %>%
+  emmeans(pairwise~sex.2) %>% 
+  summary()
+
+model.4b %>%
+  emmeans(pairwise~sex.2) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+```
+
+### CTmin
+
+Repeat above for CTmin
+
+```{r}
+
+#full model with size; NOTE: there is no interaction effect here, since sex and mating style are just one factor now.
+
+model.5a <- glm(CTmin.C ~ sex.2 + Size.mm, data = swordtail_1)
+
+
+
+#reduced model without size
+
+model.5b <- glm(CTmin.C ~ sex.2, data = swordtail_1)
+
+#Model selection
+model.sel(model.5a, model.5b)
+  ##model.5b selected
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+## replace A with either the full or reduced model name
+summary(model.5b)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+
+model.5b %>%
+  emmeans(pairwise~sex.2) %>% 
+  summary()
+
+model.5b %>%
+  emmeans(pairwise~sex.2) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+
+```
+
+### Tot temp
+
+Repeat above for Tot temp
+
+```{r}
+
+#full model with size; NOTE: there is no interaction effect here, since sex and mating style are just one factor now.
+
+model.6a <- glm(T.tot ~ sex.2 + Size.mm, data = swordtail_1)
+
+
+
+#reduced model without size
+
+model.6b <- glm(T.tot ~ sex.2, data = swordtail_1)
+
+#Model selection
+model.sel(model.6a, model.6b)
+  ##model.6b selected
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+## replace A with either the full or reduced model name
+summary(model.6b)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+
+model.6b %>%
+  emmeans(pairwise~sex.2) %>% 
+  summary()
+
+model.6b %>%
+  emmeans(pairwise~sex.2) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+
+```
+
+
+
+
+### Check normality of final models
+
+See tab above for the code
+
+
+```{r}
+
+############ CTmax ########### 
+#Simulated residuals plots using DHARMa package
+
+
+simulationOutput <- simulateResiduals(model.4b)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = swordtail_1$sex.2)
+plotResiduals(simulationOutput, form = swordtail_1$Size.mm)
+  #while there is some slight deviation from normality in the Size.mm variable (significant quantile test), we don't use this factor in our final model so I won't be correcting for it. 
+
+
+########### CTmin ########### 
+#Simulated residuals plots using DHARMa package
+
+
+simulationOutput <- simulateResiduals(model.5b)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = swordtail_1$sex.2)
+plotResiduals(simulationOutput, form = swordtail_1$Size.mm)
+  #while there is some slight deviation from normality in the Size.mm variable (significant quantile test), we don't use this factor in our final model so I won't be correcting for it. 
+
+
+########### Tottemp ########### 
+#Simulated residuals plots using DHARMa package
+
+
+simulationOutput <- simulateResiduals(model.6b)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = swordtail_1$sex.2)
+plotResiduals(simulationOutput, form = swordtail_1$Size.mm)
+  #while there is some slight deviation from normality in the Size.mm variable (significant quantile test), we don't use this factor in our final model so I won't be correcting for it. 
+
+
+
+```
+
+
+### Interpret and visualize model results
+
+```{r}
+#to interpret model results
+
+##CTmax
+get_model_data(model.4b,type="pred", terms = c("sex.2"))   
+
+##CTmin
+get_model_data(model.5b,type="pred", terms = c("sex.2"))  
+
+##Tot temp
+get_model_data(model.6b,type="pred", terms = c("sex.2"))  
+
+```
+
+
+
+```{r}
+#plot results
+
+##CTmax
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with sex/mating categories on the x, and CTmax on the y.
+CTMAX_results_SW <- plot_model(model.4b, 
+             type = "pred", 
+             terms = c("sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("sex", "CTmax"), 
+             legend.title = c("sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results_SW
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, and three predictor lines for the sexes/mating styles
+
+CTMAX_results2_SW <- plot_model(model.4a,           
+             type = "pred", 
+             terms = c("Size.mm", "sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "CTmax"), 
+             legend.title = c("sex.2"))
+
+CTMAX_results2_SW
+
+
+
+
+##CTmin
+
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with sex/mating categories on the x, and CTmax on the y.
+CTMIN_results_SW <- plot_model(model.5b, 
+             type = "pred", 
+             terms = c("sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("sex", "CTmin"), 
+             legend.title = c("sex"))
+
+CTMIN_results_SW
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, and three predictor lines for the sexes/mating styles
+
+CTMIN_results2_SW <- plot_model(model.5a,           
+             type = "pred", 
+             terms = c("Size.mm", "sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "CTmin"), 
+             legend.title = c("sex.2"))
+
+CTMIN_results2_SW
+
+
+
+##Tot temp
+
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with sex/mating categories on the x, and CTmax on the y.
+TTOT_results_SW <- plot_model(model.6b, 
+             type = "pred", 
+             terms = c("sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("sex", "T.tot"), 
+             legend.title = c("sex"))
+
+TTOT_results_SW
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, and three predictor lines for the sexes/mating styles
+
+TTOT_results2_SW <- plot_model(model.6a,           
+             type = "pred", 
+             terms = c("Size.mm", "sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (Size.mms)", "T.tot"), 
+             legend.title = c("sex.2"))
+
+TTOT_results2_SW
+
+
+
+
+```
+
+
+
+
+### Question 2 results
+
+CTMAX
+- no significant difference in either male type (coercise or courting) and females. 
+- mean around 35.15 deg C
+
+
+
+CTMIN
+- also no sig difference between female and male swordtails for the min temp they can withstand
+- mean around 9.78 deg C
+
+TTOT
+- again no sig difference between female and male swordtails for the total temp 
+- mean of 25.4
+
+***
+
+
+# Visualizations
+
+This will be a section to create and save all of your figures. Some may be repeats of what you've done above, but it's nice to have it all in one spot. To save a figure as a jpeg/pdf/png etc, use the code below. This will matter most when we figure out what the publisher wants your figures saved as. 
+
+< save_plot(filename=image_name.jpg, fig=figure_name, width=30, height=19) >
+  - replace .jpg with .pdf, .png etc to change file format
+  - adjust width and height numbers as needed/wanted
+  
+
+## Summary stats
+
+Here we'll just have some basic summary stats plots. These may be included in supplementary material, but chances are, they're not informative enough for the main text.
+
+```{r}
+#male= #A23302
+#female= #E2B6A3
+#sailfin/sailfin.male= #3E1C58
+#sailfin.female=#A1BDCE
+#swordtail/swordtail.male.lg= #004D40
+#swordtail.male.sm= #208D98
+#swordtail.female= #DAA912
+#mosquitofish/mosquito.male= #81822F
+#mosquito.female= #DAD1EC
+
+sexINspecies<- ggplot(data=rawTempData, aes(x=Species, fill=Sex)) + geom_bar(color= "black", position=position_dodge())+ theme_classic() + scale_fill_manual(values = c("#E2B6A3", "#A23302")) + geom_text(aes(label=..count..), stat="count", position = position_dodge(width = 0.9), vjust=1.5, color="white", size=3.5)
+
+sexINspecies
+
+```
+
+## Model visualizations
+
+Copy the visualizations of the final chosen models you performed above.
+
+
+```{r}
+
+library(ggeffects)
+
+#Question1
+##CTMax
+
+###Table
+##CTmax_table <- tab_model(model_name, show.reflvl=T, show.intercept=F, p.style="numeric_stars")
+##CTmax_table
+
+##CTmin
+
+
+###Table
+
+
+
+##Tottemp
+
+
+###Table
+
+
+
+########################
+
+#Question2
+
+##CTmax
+
+
+
+
+###Table
+
+
+
+##CTmin
+
+
+
+###Table
+
+
+
+########## Tottemp ##########
+
+##### no size
+
+predictions.6b <- ggpredict(model.6b, terms= "sex.2")
+
+SW_TT_6b <- ggplot(predictions.6b, aes(x = x, y = predicted, color = x)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  scale_color_manual(
+    values = c("male.large" = "#004D40", "male.small" = "#208D98", "female" = "#DAA912")) +
+    scale_x_discrete(
+      labels = c("male.large"= "\nMale, courting", "male.small" = "\nMale, coercive", "female"="\nFemale")) +
+    scale_y_continuous(
+      limits = c(24, 27),
+      breaks = seq(24,27, by=0.5)
+    ) +
+  labs(x = " ", y = "Predicted value of total thermal range (\u00B0C)\n"
+       ) +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14))
+
+SW_TT_6b
+
+#save_plot(filename=swordtail_total-temp.jpg, fig=SW_TT_6b, width=30, height=19)
+  ## have not tested this out in terms of width and height, may need to adjust 
+
+##### with size
+  # not sure why, but can't get the above ggplot to work for the size variable (creates a graph but no confidence intervals). Since plot_model creates a ggplot as an output, we'll stick with plot_model for the model graphs using size, and then modify to make it prettier using ggplot commands. 
+
+SW_TT_6a <- plot_model(model.6a,           
+             type = "pred", 
+             terms = c("Size.mm", "sex.2"),
+             colors=c("#004D40", "#208D98", "#DAA912"), 
+             axis.title = c("\nLength (Size.mms)", "Predicted value of total thermal range (\u00B0C)\n"), 
+             legend.title = c("Sex"))
+
+SW_TT_6a <- SW_TT_6a +
+  theme_classic()+
+  scale_y_continuous(
+      breaks = seq(20,30, by=2)
+    ) +
+  theme(
+        axis.title.x = element_text(size = 14),
+        axis.title.y = element_text(size = 14)) +
+  ggtitle(" ")
+
+SW_TT_6a
+
+#save_plot(filename=swordtail_total-temp_size.jpg, fig=SW_TT_6a, width=30, height=19)
+  ## have not tested this out in terms of width and height, may need to adjust 
+
+
+###Table
+
+
+
+
+```
+
+## Species visualizations
+
+### Simple
+
+Here we'll have the box plots you created beforehand, just as a quick visualization of the sexes within each species.
+
+```{r}
+#species data sets
+sailfin_1 <- rawTempData[rawTempData$Species =="P. latipinna",]
+mosquito_1 <- rawTempData[rawTempData$Species =="G. affinis",]
+
+
+
+#male v female max temp in sailfin
+sailfin_boxplot1 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = CTmax.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex in Sailfins",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+  
+
+print(sailfin_boxplot1)
+
+
+#male v female max temp in mosquitofish
+mosquito_boxplot1 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = CTmax.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot1)
+
+
+
+#male v female max temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot4 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = CTmax.C,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Temperature (°C)",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot4)
+
+#male v female min temp in sailfin
+sailfin_boxplot2 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = CTmin.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex in Sailfins",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(sailfin_boxplot2)
+
+
+#male v female min temp in mosquitofish
+mosquito_boxplot2 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = CTmin.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot2)
+
+#male v female min temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot5 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = CTmin.C,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Temperature (°C)",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot5)
+
+#male v female tot temp in sailfin
+sailfin_boxplot3 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = T.tot,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex in Sailfins",
+    x = "Sex",
+    y = "Thermal Range"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(sailfin_boxplot3)
+
+
+#male v female tot temp in mosquitofish
+mosquito_boxplot3 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = T.tot,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Thermal Range"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot3)
+
+#male v female tot temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot6 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = T.tot,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Thermal Range",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot6)
+
+
+```
+
+
+
+***
