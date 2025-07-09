@@ -1,0 +1,507 @@
+---
+title: "Austin-Daily-Temps"
+author: "Allison Davis Connelly"
+date: "2025-04-17"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 5
+    toc_float:
+      collapsed: FALSE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data
+
+All analyses were conducted using R version 4.4.2 
+
+## Load required libraries
+
+Remove the '#' in the code below if it is the first time installing library. 
+
+```{r}
+#install.packages("curl")             #v5.2.1
+library(curl)
+
+#install.packages("dplyr")            #v1.1.4
+library(dplyr)
+
+#install.packages("ggplot2")          #v3.5.1
+library(ggplot2)
+
+library(dplyr)
+library(broom)
+library(lubridate)
+library(gt)
+
+```
+
+## Read in data.
+
+```{r}
+
+temp <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/2020_temp-data.csv")
+
+temp <- read.csv(temp, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(temp)
+
+temp$DATE <- as.Date(temp$DATE, format="%m/%d/%Y")
+
+temp$year <- format(temp$DATE, "%Y")
+
+temp <- temp %>%
+  mutate(
+    year = format(DATE, "%Y"),  
+    month = format(DATE, "%B"),  
+    day = format(DATE, "%d")     
+  )
+
+vente <- temp[temp$year == "2020",]
+
+ven.uno <- temp[temp$year == "2021",]
+
+ven.dos <- temp[temp$year == "2022",]
+
+ven.tres <- temp[temp$year == "2023",]
+
+ven.quat <- temp[temp$year == "2024",]
+
+ven.cin <- temp[temp$year == "2025",]
+  
+
+
+
+```
+
+# Analysis
+
+## 2020 temps
+
+```{r}
+df <- vente %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+
+
+
+
+```
+
+## 2021 temps
+
+```{r}
+
+df <- ven.uno %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes1 <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes1 %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+```
+
+
+## 2022 temps
+
+```{r}
+
+df <- ven.dos %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes2 <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes2 %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+
+
+```
+
+
+## 2023 temps
+
+```{r}
+
+df <- ven.tres %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes3 <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes3 %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+
+
+```
+
+
+## 2024 temps
+
+```{r}
+
+df <- ven.quat %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes4 <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes4 %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+
+
+```
+
+
+## 2025 temps
+
+```{r}
+
+df <- ven.cin %>%
+  mutate(
+    time_obj = hms(HOUR),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60, 
+    month = factor(month, levels = month.name)
+  ) %>%
+  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes))
+
+# Fit a linear model of temp ~ minutes for each date
+slopes5 <- df %>%
+  group_by(month, day) %>%
+  summarise(slope_deg_per_minute = coef(lm(HourlyDryBulbTemperature ~ minutes))[2])
+
+# make a pretty table
+
+slopes5 %>%
+  arrange(month) %>%
+    gt() %>%
+    tab_header(title = "Temp change in Austin") %>%
+    cols_label(month ="Month",
+               slope_deg_per_minute = "Temp change (deg/min") %>%
+    fmt_number(columns = c("slope_deg_per_minute"), decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(month))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything()))
+
+
+```
+
+
+## Highest temp changes
+
+### 2020
+
+```{r}
+
+extreme_slopes <- slopes %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
+
+
+### 2021
+
+```{r}
+
+extreme_slopes <- slopes1 %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes1 %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
+
+
+### 2022
+
+```{r}
+
+extreme_slopes <- slopes2 %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes2 %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
+
+### 2023
+
+```{r}
+
+extreme_slopes <- slopes3 %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes3 %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
+
+### 2024
+
+```{r}
+
+extreme_slopes <- slopes4 %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes4 %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
+
+### 2025
+
+```{r}
+
+extreme_slopes <- slopes5 %>%
+  group_by(month) %>%
+  slice_max(slope_deg_per_minute, n = 1, with_ties = FALSE) %>%   # highest positive
+  bind_rows(
+    slopes5 %>%
+      group_by(month) %>%
+      slice_min(slope_deg_per_minute, n = 1, with_ties = FALSE)   # highest negative
+  ) %>%
+  arrange(month)  # optional, to keep calendar order
+
+extreme_slopes %>%
+  gt() %>%
+  tab_header(title = "Most Extreme Temp Changes by Month") %>%
+  cols_label(
+    month = "Month",
+    day = "Date",
+    slope_deg_per_minute = "Temp Change (deg/min)"
+  ) %>%
+  fmt_number(columns = slope_deg_per_minute, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = month)
+  ) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())
+  )
+
+```
