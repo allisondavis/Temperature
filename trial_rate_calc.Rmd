@@ -37,6 +37,9 @@ library(curl)
 #install.packages("dplyr")            #v1.1.4
 library(dplyr)
 
+#install.packages("tidyr")            #v1.3.1
+library(tidyr)
+
 #install.packages("gt")               #v0.11.1
 library(gt)
 
@@ -48,7 +51,7 @@ library(ggplot2)
 ```
 
 
-## Read in data.
+## Read in data
 
 ```{r}
 
@@ -202,25 +205,26 @@ wt <- max.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=0.3)$statistic,
           p.value = wilcox.test(Rate, mu=0.3)$p.value) %>%
-  mutate(p.value = case_when(
+  mutate(p.display = case_when(
     p.value < 0.001 ~ "*p* < 0.001^*^",
     p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
     TRUE            ~ sprintf("%.3f", p.value)))
 
 wt %>%
   gt() %>%
+  cols_hide(p.value) %>%
   tab_header(title = "CTmax goal rate comparison") %>%
     cols_label(Species = "Species",
                statistic = "Wilcoxon statistic",
-               p.value = md("*p*-value")) %>%
-  fmt_markdown(columns = "p.value") %>%
+               p.display = md("*p*-value")) %>%
+  fmt_markdown(columns = p.display) %>%
   tab_style(
       style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
       locations = cells_body(columns = c("Species", "statistic"))) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(
-      columns = "p.value",
+      columns = p.display,
       rows = p.value < 0.05)) %>%
   cols_align(align="center", everything()) %>%
    opt_horizontal_padding(scale=2)
@@ -236,25 +240,26 @@ wt2 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=-0.3)$statistic,
           p.value = wilcox.test(Rate, mu=-0.3)$p.value) %>%
-  mutate(p.value = case_when(
+  mutate(p.display = case_when(
     p.value < 0.001 ~ "*p* < 0.001^*^",
     p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
     TRUE            ~ sprintf("%.3f", p.value)))
 
 wt2 %>%
   gt() %>%
+  cols_hide(p.value) %>%
   tab_header(title = "CTmin goal rate comparison") %>%
     cols_label(Species = "Species",
                statistic = "Wilcoxon statistic",
-               p.value = md("*p*-value")) %>%
-  fmt_markdown(columns = "p.value") %>%
+               p.display = md("*p*-value")) %>%
+  fmt_markdown(columns = p.display) %>%
   tab_style(
       style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
       locations = cells_body(columns = c("Species", "statistic"))) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(
-      columns = "p.value",
+      columns = p.display,
       rows = p.value < 0.05)) %>%
   cols_align(align="center", everything()) %>%
    opt_horizontal_padding(scale=2)
@@ -282,25 +287,26 @@ wt3 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=-0.1)$statistic,
           p.value = wilcox.test(Rate, mu=-0.1)$p.value) %>%
-  mutate(p.value = case_when(
+  mutate(p.display = case_when(
     p.value < 0.001 ~ "*p* < 0.001^*^",
     p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
     TRUE            ~ sprintf("%.3f", p.value)))
 
 wt3 %>%
   gt() %>%
+  cols_hide(p.value) %>%
   tab_header(title = "CTmin alt rate comparison") %>%
     cols_label(Species = "Species",
                statistic = "Wilcoxon statistic",
-               p.value = md("*p*-value")) %>%
-  fmt_markdown(columns = "p.value") %>%
+               p.display = md("*p*-value")) %>%
+  fmt_markdown(columns = p.display) %>%
   tab_style(
       style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
       locations = cells_body(columns = c("Species", "statistic"))) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(
-      columns = "p.value",
+      columns = p.display,
       rows = p.value < 0.05)) %>%
   cols_align(align="center", everything()) %>%
    opt_horizontal_padding(scale=2)
@@ -319,12 +325,39 @@ Since swordtail trails differed from the target rate but not mosquitofish and sa
 ```{r}
 
 kruskal.test(Rate~Species, data=max.rates) #not significant (p=0.295)
-kruskal.test(Rate~Species, data=min.rates) #significant (p=0.34)
+kruskal.test(Rate~Species, data=min.rates) #significant (p=0.034)
 
 
 # Since CTmin rates did differ between the species, we will perform pairwise comparisons using a Benjamini-Hochberg p adjustment.
 
-pairwise.wilcox.test(min.rates$Rate, min.rates$Species, p.adjust.method = "BH")
+pw <- pairwise.wilcox.test(min.rates$Rate, min.rates$Species, p.adjust.method = "BH")
+
+pw_df <- pw$p.value %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("group1") %>%
+  pivot_longer(
+    -group1,
+    names_to = "group2",
+    values_to = "p_adj") %>%
+  filter(!is.na(p_adj)) %>% 
+  arrange(group1, group2)
+
+pw_df %>%
+  gt() %>%
+  cols_label(
+    group1 = "Species 1",
+    group2 = "Species 2",
+    p_adj  = md("*p*-value")) %>%
+  fmt_markdown(columns = "p_adj") %>%
+  fmt_number(
+    columns = p_adj,
+    decimals = 3) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(group1, group2))) %>%
+  cols_align(align="center", everything()) %>%
+   opt_horizontal_padding(scale=2)
+
 
 ### Looks like mosquitofish CTmin trials are marginally (p=0.054) different than sailfin and swordtail. 
 
@@ -345,3 +378,56 @@ When using the alternate CTmin rate of -0.1°C/min, there were no significant di
 **Rates among species**
 
 We also compared rates among the species to determine if one species experienced a significantly different rate compared to the others, regardless of target rate. We did not find any differences for CTmax trials but did find a significant difference in CTmin trials. When followed up with a pairwise test (with a Benjamini-Hochberg p adjustment), we see that mosquitofish trials are marginally different than sailfin and swordtail (p=0.054).
+
+
+
+***
+***
+***
+
+# Alternative tables & figures
+
+This section is just to create combined tables and figures for publication.
+
+```{r}
+# COMBINED BY SPECIES RATE COMPARISONS
+wt  <- wt  %>% mutate(Test = "CTmax")
+wt2 <- wt2 %>% mutate(Test = "CTmin −0.3")
+wt3 <- wt3 %>% mutate(Test = "CTmin −0.1")
+
+
+wt.all <- bind_rows(wt, wt2, wt3)
+wt.all <- wt.all %>%
+  mutate(
+    result = case_when(
+      p.value < 0.001 ~ paste0("*p* < 0.001<br>(W = ", statistic,")"),
+      p.value < 0.05  ~ paste0(
+        "*p* = ", sprintf("%.3f", p.value),
+        "<br>(W = ", statistic, ")"),
+      TRUE ~ paste0(
+        "*p* = ", sprintf("%.3f", p.value),
+        "<br>(W = ", statistic, ")")))
+
+wt.wide <- wt.all %>%
+  select(Species, Test, result) %>%
+  pivot_wider(
+    names_from  = Test,
+    values_from = result)
+
+wt.wide %>%
+  gt() %>%
+  cols_label(
+    Species   = "Species") %>%
+  fmt_markdown(everything()) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = c(`CTmax`, `CTmin −0.3`),
+      rows = Species == "Swordtail")) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+      locations = cells_body(columns = c(Species, CTmax, `CTmin −0.3`))) %>%
+  cols_align(align = "center", everything()) %>%
+  opt_horizontal_padding(scale = 2)
+
+```

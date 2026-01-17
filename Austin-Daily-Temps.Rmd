@@ -49,13 +49,14 @@ library(gt)
 
 ```
 
-## Read in data.
+## Read in data
 
 ```{r}
 
-temp <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/Austin_temp-data.csv")
+temp <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/main/Austin_temp-data.csv")
 
 temp <- read.csv(temp, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+
 head(temp)
 
 # Change date from month-day-year to year-month-day
@@ -507,4 +508,4 @@ overall_avg_rates
 
 # Summary
 
-The rate of temperature change in our trials was set to +/-0.3°C/min as this was slow enough to ensure matching internal body change and fast enough to prevent acclimation. As shown above, this rate is far higher than that experienced in Austin, TX for the past five years. This time frame includes extreme weather events such as the winter storm NAME in 2019, but rates do not mirror this EXTREMITY? While our test rates may illustrate the physiological tolerances of our fish species, trials mimicking the extreme temperature rates actually experienced may provide a more accurate image of THERMAL THREAT?? 
+The rate of temperature change in our trials was set to +/-0.3°C/min as this was slow enough to ensure matching internal body change and fast enough to prevent acclimation. As shown above, this rate is far higher than that experienced in Austin, TX for the past five years. This time frame includes extreme weather events such as the winter storm Uri in 2021, but rates do not mirror this extremity. While our test rates may illustrate the physiological tolerances of our fish species, trials mimicking the extreme temperature rates actually experienced may provide a more accurate image of future thermal effects. 
