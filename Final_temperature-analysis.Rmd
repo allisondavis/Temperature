@@ -376,8 +376,8 @@ ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Species") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Species") +
   theme_classic()
 
 # SPECIES & SEX MODEL
@@ -476,8 +476,8 @@ ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Species") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Species") +
   theme_classic()
 
 # SPECIES & SEX MODEL
@@ -577,8 +577,8 @@ ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Species") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Species") +
   theme_classic()
 
 # SPECIES & SEX MODEL
@@ -696,13 +696,15 @@ pairs(PW.sex.max) #Pairwise results
 
 PW.df <- as.data.frame(PW.sex.max)
 
-ggplot(PW.df, aes(x=sex.2, y=emmean)) +
+em.max <- ggplot(PW.df, aes(x=sex.2, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Mating strategy") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Mating strategy") +
+  ggtitle("\n CTmax") +
   theme_classic()
+em.max
   
   ## Coefficients
 summary(SWmod1)
@@ -724,13 +726,15 @@ pairs(PW.sex.min) #Pairwise results
 
 PW.df <- as.data.frame(PW.sex.min)
 
-ggplot(PW.df, aes(x=sex.2, y=emmean)) +
+em.min <- ggplot(PW.df, aes(x=sex.2, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Mating strategy") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Mating strategy") +
+  ggtitle("CTmin") +
   theme_classic()
+em.min
   
   ## Coefficients
 summary(SWmod2)
@@ -752,14 +756,15 @@ pairs(PW.sex.tot) #Pairwise results
 
 PW.df <- as.data.frame(PW.sex.tot)
 
-ggplot(PW.df, aes(x=sex.2, y=emmean)) +
+em.tot <- ggplot(PW.df, aes(x=sex.2, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-  ylab("Predicted mean temperature (°C)") +
-  xlab("Mating strategy") +
+  ylab("Predicted mean temperature (°C) \n") +
+  xlab("\n Mating strategy") +
+  ggtitle("Thermal Breadth") +
   theme_classic()
-  
+em.tot
   ## Coefficients
 summary(SWmod3)
 
@@ -1134,7 +1139,6 @@ max.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = CTmax.C)) +
   ylab("Temperature at LOE (°C)") +
   ggtitle("CTmax")
   
-
 # CTmin
 
 min.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = CTmin.C)) +
@@ -1169,8 +1173,22 @@ tot.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = T.tot)) +
 
 ```
 
+(5) Combined emmeans for swordtails
 
-(5) Simple test comparing male and female lengths
+```{r}
+my.labels <- c("Female", "Male, \n courtship", "Male, \n coercion")
+em.max <- em.max + scale_x_discrete(labels = my.labels)
+em.min <- em.min + scale_x_discrete(labels = my.labels)
+em.tot <- em.tot + scale_x_discrete(labels = my.labels)
+
+(em.max + em.min + em.tot + plot_layout(axis_titles = "collect"))
+
+
+
+
+```
+
+(6) Simple test comparing male and female lengths
 
 ```{r}
 normal <- datTot %>%
