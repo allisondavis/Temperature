@@ -472,7 +472,7 @@ annual_avg_rates <- slopes %>%
     Year = "Year",
     avg_positive_rate = "Average increase (°C/min)",
     avg_negative_rate = "Average decrease (°C/min)") %>%
-  fmt_number(columns = c(avg_positive_rate, avg_negative_rate), decimals = 3) %>%
+  fmt_number(columns = c(avg_positive_rate, avg_negative_rate), decimals = 6) %>%
   tab_style(
     style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
     locations = cells_body(columns = c(Year, avg_positive_rate))) %>%
