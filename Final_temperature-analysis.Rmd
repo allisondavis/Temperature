@@ -73,6 +73,9 @@ library(sandwich)
 #install.packages("ggplot2")          #v3.5.1
 library(ggplot2)
 
+#install.packages("ggpubr")          #v0.6.2
+library(ggpubr)
+
 #install.packages("DHARMa")           #v0.4.7
 library(DHARMa)
 
@@ -102,6 +105,7 @@ rawTempData$Species <- factor(rawTempData$Species,
                         levels = c("X. nigrensis", "P. latipinna", "G. affinis"),
                         labels = c("Swordtail", "Sailfin", "Mosquitofish"))
 
+
 ```
 
 
@@ -111,19 +115,18 @@ Trial stats
 
 ```{r}
 #remove unnecessary columns
-datTot <- rawTempData[,-c(5:7)]
+datTot <- rawTempData[,-c(5:7, 10)]
 
 dat.long <- datTot %>%
   pivot_longer(
-    cols = c(CTmax.C, CTmin.C, T.tot),
+    cols = c(CTmax.C, CTmin.C),
     names_to = "Trial",
     values_to = "Value") %>%
   mutate(
     Trial = dplyr::recode(
       Trial,
       "CTmax.C" = "CTmax",
-      "CTmin.C" = "CTmin",
-      "T.tot"   = "Thermal Breadth"))
+      "CTmin.C" = "CTmin"))
 
 summ.stats <- dat.long %>%
   group_by(Species, Trial) %>%
@@ -188,6 +191,7 @@ sizes <- datTot %>%
     avg.len = mean(Size.mm),
     st.dev = sd(Size.mm),
     .groups = "drop")
+
  sizes.fmt <- sizes %>%
    mutate(
     size.display = sprintf("%.1f (%.2f)", avg.len, st.dev)) %>%
@@ -196,12 +200,12 @@ sizes <- datTot %>%
     names_from = Sex,
     values_from = size.display)
 
-sizes.fmt %>%
+m.f.sizes <- sizes.fmt %>%
   gt() %>%
   tab_header(title = "Average lengths (mm)") %>%
     cols_label(Species ="Species",
-               female = "Female (sd)",
-               male = "Male (sd)") %>%
+               female = "Female (SD)",
+               male = "Male (SD)") %>%
   tab_style(
       style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
       locations = cells_body(columns = c(Species, female))) %>%
@@ -209,7 +213,7 @@ sizes.fmt %>%
     style = cell_text(align = "center"),
     locations = cells_column_labels(columns = everything())) %>%
   opt_horizontal_padding(scale=2)
-
+m.f.sizes
 
 ### boxplot
 dat.plot <- datTot %>%
@@ -372,13 +376,29 @@ pairs(PW.sp.max) #Pairwise results
 
 PW.df <- as.data.frame(PW.sp.max)
 
-ggplot(PW.df, aes(x=Species, y=emmean)) +
+df.pvals <- data.frame(
+  group1 = c("Swordtail", "Sailfin", "Swordtail"),
+  group2 = c("Sailfin", "Mosquitofish", "Mosquitofish"),
+  label  = c("p<0.001*", "ns", "p < 0.001*"),
+  y.position = c(39, 39, 39))
+
+df.pvals$fontface <- ifelse(df.pvals$label == "ns", "plain", "bold")
+
+emmean.max<-ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
+  stat_pvalue_manual(
+    df.pvals,
+    label = "label",
+    tip.length = 0.01,
+    bracket.size = 0.5,
+    step.increase = 0.1,
+    fontface = "fontface") +
   ylab("Predicted mean temperature (°C) \n") +
   xlab("\n Species") +
   theme_classic()
+emmean.max
 
 # SPECIES & SEX MODEL
 
@@ -472,118 +492,33 @@ pairs(PW.sp.min) #Pairwise results
 
 PW.df <- as.data.frame(PW.sp.min)
 
-ggplot(PW.df, aes(x=Species, y=emmean)) +
+df.pvals <- data.frame(
+  group1 = c("Swordtail", "Sailfin", "Swordtail"),
+  group2 = c("Sailfin", "Mosquitofish", "Mosquitofish"),
+  label  = c("p<0.001*", "p = 0.004*", "p<0.001*"),
+  y.position = c(10.5, 10.5, 10.5))
+
+df.pvals$fontface <- ifelse(df.pvals$label == "ns", "plain", "bold")
+
+emmean.min <- ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
   ylab("Predicted mean temperature (°C) \n") +
+  stat_pvalue_manual(
+    df.pvals,
+    label = "label",
+    tip.length = 0.01,
+    bracket.size = 0.5,
+    step.increase = 0.1,
+    fontface = "fontface") +
   xlab("\n Species") +
   theme_classic()
+emmean.min
 
 # SPECIES & SEX MODEL
 
 coeftest(mod2c, vcov. = vcovHC(mod1c, type= "HC3"))
-
-
-```
-
-
-## **Thermal breadth**
-
-### Model Selection
-
-While we expect the results to mirror the ones above, we will repeat the above analysis with thermal breadth (Ttot = CTmax-CTmin). Thermal breadth will be our dependent variable, and sex, species (plus their interaction), and size as our independent variables. We will then select our final model based on ΔAIC scores.
-
-**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.695). The model with both species and sex has a delta value greater than 2 (ΔAICc=2.27; weight=0.224), but we will keep this model for the purpose of illustrating the limited effect of sex as we've done in the previous temperature categories. 
-
-```{r}
-# All models
-mod3 <- lm(T.tot ~ Species*Sex + Size.mm, data = datTot) #full model with interaction effect
-mod3b <- lm(T.tot ~ Species + Sex + Size.mm, data = datTot) #full model, no interaction
-mod3c <- lm(T.tot ~ Species + Sex, data = datTot) #no size effect
-mod3d <- lm(T.tot ~ Sex + Size.mm, data = datTot) #no species effect
-mod3e <- lm(T.tot ~ Sex, data = datTot) #sex only effect
-mod3f <- lm(T.tot ~ Species, data = datTot) #species only effect
-mod3g <- lm(T.tot ~ Size.mm, data = datTot) #size only effect
-
-# Model selection
-model.sel(mod3, mod3b, mod3c, mod3d, mod3e, mod3f, mod3g)
-
-  ### Mod3f (species only effect) is the most supported model (ΔAICc=0; weight=0.695)
-  ### Mod3c (species and sex, no size) has a ΔAICc > 2 (ΔAICc=2.27; weight=0.224), but we'll  keep this model just to illustrate the effects of sex as we've done with the previous categories.
-
-```
-
-### Residual checks
-
-Here, we will check if the model residuals are normal and homoscedastic.
-
-**Results:** Both the species only (most supported) and species + sex model are heteroscedastic. This is driven by species-level differences in variation. Robust standard errors will allow us to assess the significance of the effects despite this heteroscedasticity. 
-
-```{r}
-
-# Species only model
-simulationOutput <- simulateResiduals(mod3f)
-
-plot(simulationOutput)
-
-plotResiduals(simulationOutput)
-plotResiduals(simulationOutput, form = rawTempData$Species)
-
-  ### Failed Levene's test driven by species-level variation differences
-
-
-# Species and sex model
-simulationOutput2 <- simulateResiduals(mod3c)
-
-plot(simulationOutput2)
-
-plotResiduals(simulationOutput2)
-plotResiduals(simulationOutput2, form = rawTempData$Species)
-plotResiduals(simulationOutput2, form = rawTempData$Sex)
-
-  ### Failed Levene's test driven by species-level variation differences
-
-
-```
-
-
-### Model Summary
-
-Again, we will use robust standard errors to assess factor significance, as this method can tolerate the heteroscedasticity we detected in our model residuals. We will determine the overall effect of species, calculate the estimated marginal means and run a pairwise species comparison all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors to illustrate the effect of sex on the model. 
-
-**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show swordtails to be significantly different to sailfin (p<0.001) and mosquitofish (p<0.001), but sailfin and mosquitofish do not significantly differ (p=0.408). Sex was confirmed as not a significant predictor in the model (estimate=0.054, SE=0.223, p=0.825).
-
-```{r}
-# SPECIES ONLY MODEL
-
- ## Robust variance-covariance matrix
-robVCV.sp <- vcovHC(mod3f, type= "HC3")
-
- ## Overall species effect
-Anova(mod3f, vcov = robVCV.sp, type="II")
-
- ## EMM & Pairwise comparisons
-
-PW.sp.tot <- emmeans(mod3f, "Species", vcov. = robVCV.sp)
-summary(PW.sp.tot) #EMM
-pairs(PW.sp.tot) #Pairwise results
-      
-  ## Plotting EMM
-
-PW.df <- as.data.frame(PW.sp.tot)
-
-ggplot(PW.df, aes(x=Species, y=emmean)) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  ylab("Predicted mean temperature (°C) \n") +
-  xlab("\n Species") +
-  theme_classic()
-
-# SPECIES & SEX MODEL
-
-coeftest(mod3c, vcov. = vcovHC(mod1c, type= "HC3"))
 
 
 ```
@@ -619,13 +554,12 @@ vif(mod_test) #moderate collinearity for size.mm (3.0); low collinearity for sex
 ### CONCLUSION: adding size would be redundant
 ```
 
-Since there is only one model (temp ~ sex2), there is no need for model selection. Instead, we will run this model for all three temperature categories, check residuals and summarize the models with robust standard errors if necessary.
+Since there is only one model (temp ~ sex2), there is no need for model selection. Instead, we will run this model for both temperature categories, check residuals and summarize the models with robust standard errors if necessary.
 
 
 ```{r}
 SWmod1 <- lm(CTmax.C ~ sex.2, data = swordtail_1)
 SWmod2 <- lm(CTmin.C ~ sex.2, data = swordtail_1)
-SWmod3 <- lm(T.tot ~ sex.2, data = swordtail_1)
 
 ```
 
@@ -634,7 +568,7 @@ SWmod3 <- lm(T.tot ~ sex.2, data = swordtail_1)
 
 Here, we will check if the model residuals are normal and homoscedastic using the 'DHARMa' package.
 
-**Results:** Residuals for all three models (CTmax, CTmin, thermal breadth) pass.  
+**Results:** Residuals for both models (CTmax, CTmin) pass.  
 
 ```{r}
 
@@ -659,17 +593,6 @@ plotResiduals(simulationOutput, form = swordtail_1$sex.2)
   ### All good!
 
 
-# Ttot
-simulationOutput <- simulateResiduals(SWmod3)
-
-plot(simulationOutput)
-
-plotResiduals(simulationOutput)
-plotResiduals(simulationOutput, form = swordtail_1$sex.2)
-
-  ### All good!
-
-
 ```
 
 
@@ -677,7 +600,7 @@ plotResiduals(simulationOutput, form = swordtail_1$sex.2)
 
 All models pass residual checks, so we will determine the overall effect of mating strategy, calculate the estimated marginal means, and run a pairwise strategy comparison without an additional variance-covariance specification.
 
-**Results:** Mating strategy did not significantly affect thermal tolerance within swordtails across all three temperature categories (CTmax: p=0.647; CTmin: p=0.378; Ttot: p=0.480). This result is mirrored in all pairwise comparisons. 
+**Results:** Mating strategy did not significantly affect thermal tolerance within swordtails across both temperature categories (CTmax: p=0.647; CTmin: p=0.378). This result is mirrored in all pairwise comparisons. 
 
 ```{r}
 
@@ -694,7 +617,13 @@ pairs(PW.sex.max) #Pairwise results
       
   ## Plotting EMM
 
-PW.df <- as.data.frame(PW.sex.max)
+PW.df <- as.data.frame(PW.sex.max) %>%
+  mutate(
+    sex.2 = case_when(
+      sex.2 == "female" ~ "Female",
+      sex.2 == "male.courtship" ~ "Male, \ncourtship",
+      sex.2 == "male.coercion" ~ "Male, \ncoercion"))
+
 
 em.max <- ggplot(PW.df, aes(x=sex.2, y=emmean)) +
   geom_point(size=2) +
@@ -740,34 +669,6 @@ em.min
 summary(SWmod2)
 
 
-
-# T.tot
-
-## Overall strategy effect
-Anova(SWmod3, type="II")
-
- ## EMM & Pairwise comparisons
-
-PW.sex.tot <- emmeans(SWmod3, "sex.2")
-summary(PW.sex.tot) #EMM
-pairs(PW.sex.tot) #Pairwise results
-      
-  ## Plotting EMM
-
-PW.df <- as.data.frame(PW.sex.tot)
-
-em.tot <- ggplot(PW.df, aes(x=sex.2, y=emmean)) +
-  geom_point(size=2) +
-  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
-  ylab("Predicted mean temperature (°C) \n") +
-  xlab("\n Mating strategy") +
-  ggtitle("Thermal Breadth") +
-  theme_classic()
-em.tot
-  ## Coefficients
-summary(SWmod3)
-
 ```
 
 
@@ -776,7 +677,7 @@ summary(SWmod3)
 
 Based on the power of our current study, we will calculate the average temperature difference needed to detect a significant sex effect. 
 
-**Results:** The actual temperature difference between males and females in each category was much lower than the simulated temperature differences needed to detect a sex effect given the power of our study (Actual: CTmax=0.3, CTmin=0.2, Ttot=0.1; Simulated: CTmax=0.7, CTmin=0.9, Ttot=1.3). While we found no statistically significant sex effect in any temperature category, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
+**Results:** The actual temperature difference between males and females in each category was much lower than the simulated temperature differences needed to detect a sex effect given the power of our study (Actual: CTmax=0.3, CTmin=0.2; Simulated: CTmax=0.7, CTmin=0.9). While we found no statistically significant sex effect in any temperature category, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
 
 Power simulation:
 
@@ -845,17 +746,14 @@ nF <- c(16, 8, 15)
 # Replace these sigma values with the residual SD from your real LMs
 sigma_CTmax <- 1.029198   # summary(mod1f)$sigma
 sigma_CTmin <- 1.409949   # summary(mod2f)$sigma
-sigma_Ttot  <- 2.017707   # summary(mod3f)$sigma
 
 # Run simulations
 MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.7°C
 MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.9°C
-MDD_Ttot  <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_Ttot,  trait_name="Ttot") #1.3°C
 
 CTmax_df <- MDD_CTmax$power_curve %>% mutate(Trait="CTmax", MDD=MDD_CTmax$MDD)
 CTmin_df <- MDD_CTmin$power_curve %>% mutate(Trait="CTmin", MDD=MDD_CTmin$MDD)
-Ttot_df  <- MDD_Ttot$power_curve  %>% mutate(Trait="Ttot",  MDD=MDD_Ttot$MDD)
-power_all <- bind_rows(CTmax_df, CTmin_df, Ttot_df)
+power_all <- bind_rows(CTmax_df, CTmin_df)
 
 # Plot
 ggplot(power_all, aes(x=delta, y=power, color=Trait)) +
@@ -869,8 +767,8 @@ ggplot(power_all, aes(x=delta, y=power, color=Trait)) +
   theme_minimal() +
   theme(text = element_text(size=12)) + 
   scale_color_manual(name="Trait",
-                    values = c("CTmax"="#E1AF00", "CTmin"="#78B7C5", "Ttot"="#9986A5"),
-                    labels = c("CTmax"="CTmax", "CTmin"="CTmin", "Ttot"="Thermal Breadth"))
+                    values = c("CTmax"="#E1AF00", "CTmin"="#78B7C5"),
+                    labels = c("CTmax"="CTmax", "CTmin"="CTmin"))
 
 
 
@@ -885,12 +783,11 @@ females <- rawTempData[rawTempData$Sex == "female",]
 
 (mean(males$CTmax.C))- (mean(females$CTmax.C)) #0.297°C
 (mean(males$CTmin.C))- (mean(females$CTmin.C)) #0.163°C
-(mean(males$T.tot))- (mean(females$T.tot)) #0.135°C
 
 df <- data.frame(
-  type = c("CTmax", "CTmin", "Thermal Breadth"),
-  Actual   = c(0.3, 0.2, 0.1),
-  Simulated   = c(0.7, 0.9, 1.3)
+  type = c("CTmax", "CTmin"),
+  Actual   = c(0.3, 0.2),
+  Simulated   = c(0.7, 0.9)
 )
 
 df %>%
@@ -909,13 +806,13 @@ df %>%
 
 # **Summary**
 
-We were interested in whether sex played a role in thermal tolerance due to preexisting sex-based differences, such as sexually selected traits, size, or behavior. We tested for sex-biased tolerance in CTmax and CTmin trials (also thermal breadth=CTmax-CTmin), in three livebearing species: sailfin mollies (*P. latipinna*), Western mosquitofish (*G. affinis*), and Panuco swordtail (*X. nigrensis*). We also tested whether mating strategies within one species (swordtail) affected thermal tolerance.
+We were interested in whether sex played a role in thermal tolerance due to preexisting sex-based differences, such as sexually selected traits, size, or behavior. We tested for sex-biased tolerance in CTmax and CTmin trials in three livebearing species: sailfin mollies (*P. latipinna*), Western mosquitofish (*G. affinis*), and Panuco swordtail (*X. nigrensis*). We also tested whether mating strategies within one species (swordtail) affected thermal tolerance.
 
-In all three temperature categories (CTmax, CTmin, thermal breadth), sex did ***not*** influence thermal tolerance. Instead, only species differences affected thermal tolerance. In general, mosquitofish tolerated the most extreme temperatures, followed by sailfin. Swordtails had the narrowest and weakest thermal tolerance, owing likely to the consistency of temperature at their place of origin (e.g spring-fed rivers).
+In both trials (CTmax, CTmin), sex did ***not*** influence thermal tolerance. Instead, only species differences affected thermal tolerance. In general, mosquitofish tolerated the most extreme temperatures, followed by sailfin. Swordtails had the narrowest and weakest thermal tolerance, owing likely to the consistency of temperature at their place of origin (e.g spring-fed rivers).
 
 Likewise, mating strategy did ***not*** influence thermal tolerance, further confirming that this is likely no detectable sex-biased thermal differences in our current setup. 
 
-A power analysis shows that the actual detected sex differences in all three categories is much lower than the simulated temperature differences needed in order to detect a sex-based effect given the power of our study. Therefore, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
+A power analysis shows that the actual detected sex differences in both categories is much lower than the simulated temperature differences needed in order to detect a sex-based effect given the power of our study. Therefore, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
 
 
 ***
@@ -924,7 +821,7 @@ A power analysis shows that the actual detected sex differences in all three cat
 
 # Alternative tables & figures
 
-This section will have table and figures used for publication.
+This section will have tables and figures used for publication.
 
 (1) Combined pairwise comparisons- across species
 
@@ -943,14 +840,8 @@ pw.ctmin <- pairs(PW.sp.min) %>%
     est_se = sprintf("%.2f (%.2f)", estimate, SE)) %>%
   select(Trial, contrast, est_se, p.value)
 
-pw.ttot <- pairs(PW.sp.tot) %>%
-  as.data.frame() %>%
-  mutate(
-    Trial = "Thermal Breadth",
-    est_se = sprintf("%.2f (%.2f)", estimate, SE)) %>%
-  select(Trial, contrast, est_se, p.value)
 
-pw.all <- dplyr::bind_rows(pw.ctmax, pw.ctmin, pw.ttot) %>%
+pw.all <- dplyr::bind_rows(pw.ctmax, pw.ctmin) %>%
   mutate(
     p.display = case_when(
       p.value < 0.001 ~ "*p* < 0.001",
@@ -1001,14 +892,8 @@ pw.sex.min <- pairs(PW.sex.min) %>%
     est_se = sprintf("%.2f (%.2f)", estimate, SE)) %>%
   select(Trial, contrast, est_se, p.value)
 
-pw.sex.tot <- pairs(PW.sex.tot) %>%
-  as.data.frame() %>%
-  mutate(
-    Trial = "Thermal Breadth",
-    est_se = sprintf("%.2f (%.2f)", estimate, SE)) %>%
-  select(Trial, contrast, est_se, p.value)
 
-pw.sex.all <- dplyr::bind_rows(pw.sex.max, pw.sex.min, pw.sex.tot) %>%
+pw.sex.all <- dplyr::bind_rows(pw.sex.max, pw.sex.min) %>%
   mutate(
     p.display = case_when(
       p.value < 0.001 ~ "*p* < 0.001",
@@ -1044,10 +929,15 @@ pw.sex.all %>%
 
 (3) Box plots by species by sex
 
-```{r}
+```{r, fig.width=10, fig.height=10}
 # CTmax
 
-ggplot(dat.plot, aes(x = Sex.plot, y = CTmax.C)) +
+dat.plot <- dat.plot %>%
+  mutate(Sex.plot = case_when(
+      Sex == "male" ~ "Male",
+      Sex == "female" ~ "Female"))
+
+range.max<-ggplot(dat.plot, aes(x = Sex.plot, y = CTmax.C)) +
   geom_rect(
     data = subset(datTot, Species == "Sailfin"),
     inherit.aes = FALSE,
@@ -1057,19 +947,15 @@ ggplot(dat.plot, aes(x = Sex.plot, y = CTmax.C)) +
   geom_boxplot() +
   geom_point(color= "#8D8680", size=2, alpha=0.5) +
   facet_wrap(~ Species, scales = "free_x") +
-  scale_x_discrete(
-  labels = function(x) {
-    ifelse(x %in% c("Male (small)", "Male (large)"),
-           gsub(" ", "\n", x),
-           x)}) +
   theme_classic() + 
-  xlab("") +
+  xlab("Sex") +
   ylab("Temperature at LOE (°C)")
+range.max
   
 
 # CTmin
 
-ggplot(dat.plot, aes(x = Sex.plot, y = CTmin.C)) +
+range.min <- ggplot(dat.plot, aes(x = Sex.plot, y = CTmin.C)) +
   geom_rect(
     data = subset(datTot, Species == "Sailfin"),
     inherit.aes = FALSE,
@@ -1079,44 +965,26 @@ ggplot(dat.plot, aes(x = Sex.plot, y = CTmin.C)) +
   geom_boxplot() +
   geom_point(color= "#8D8680", size=2, alpha=0.5) +
   facet_wrap(~ Species, scales = "free_x") +
-  scale_x_discrete(
-  labels = function(x) {
-    ifelse(x %in% c("Male (small)", "Male (large)"),
-           gsub(" ", "\n", x),
-           x)}) +
   theme_classic() + 
-  xlab("") +
+  xlab("Sex") +
   ylab("Temperature at LOE (°C)")
+range.min
   
+range.spp <- (range.max + range.min + plot_layout(axis_titles = "collect"))
 
-# Thermal breadth
+em.max.spp <- emmean.max + xlab("") + ggtitle("CTmax") + ylim(NA, 41)
+em.min.spp <- emmean.min + xlab("") + ggtitle ("CTmin") + ylim(NA, 13)
+em.spp <- (em.max.spp + em.min.spp + plot_layout(axis_titles = "collect"))
 
-ggplot(dat.plot, aes(x = Sex.plot, y = T.tot)) +
-  geom_rect(
-    data = subset(datTot, Species == "Sailfin"),
-    inherit.aes = FALSE,
-    xmin = -Inf, xmax = Inf,
-    ymin = -Inf, ymax = Inf,
-    fill = "grey95") +
-  geom_boxplot() +
-  geom_point(color= "#8D8680", size=2, alpha=0.5) +
-  facet_wrap(~ Species, scales = "free_x") +
-  scale_x_discrete(
-  labels = function(x) {
-    ifelse(x %in% c("Male (small)", "Male (large)"),
-           gsub(" ", "\n", x),
-           x)}) +
-  theme_classic() + 
-  xlab("") +
-  ylab("Temperature at LOE (°C)")
-  
+
+((em.spp/range.spp) + plot_annotation(tag_levels = "A"))
 
 ```
 
 
 (4) Box plots by species by sex category
 
-```{r}
+```{r, fig.width=7, fig.height=5}
 dat.plot.sex <- swordtail_1 %>%
   mutate(
     Sex.plot = case_when(
@@ -1135,9 +1003,8 @@ max.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = CTmax.C)) +
            gsub(" ", "\n", x),
            x)}) +
   theme_classic() + 
-  xlab("") +
-  ylab("Temperature at LOE (°C)") +
-  ggtitle("CTmax")
+  xlab("\n Mating strategy") +
+  ylab("Temperature at LOE (°C)")
   
 # CTmin
 
@@ -1150,40 +1017,32 @@ min.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = CTmin.C)) +
            gsub(" ", "\n", x),
            x)}) +
   theme_classic() + 
-  xlab("") +
-  ylab("Temperature at LOE (°C)") +
-  ggtitle("CTmin")
+  xlab("\n Mating strategy") +
+  ylab("Temperature at LOE (°C)")
 
-# Thermal breadth
 
-tot.plot <- ggplot(dat.plot.sex, aes(x = Sex.plot, y = T.tot)) +
-  geom_boxplot() +
-  geom_point(color= "#8D8680", size=2, alpha=0.5) +
-  scale_x_discrete(
-  labels = function(x) {
-    ifelse(x %in% c("Male (coercion)", "Male (courtship)"),
-           gsub(" ", "\n", x),
-           x)}) +
-  theme_classic() + 
-  xlab("") +
-  ylab("Temperature at LOE (°C)") +
-  ggtitle("Thermal Breadth")
  
- (max.plot + min.plot + tot.plot)
+ (max.plot + min.plot + plot_layout(axis_titles = "collect"))
+range.swd <-  (max.plot + min.plot + plot_layout(axis_titles = "collect"))
 
 ```
 
 (5) Combined emmeans for swordtails
 
-```{r}
+```{r, fig.width=7, fig.height=5}
 my.labels <- c("Female", "Male, \n courtship", "Male, \n coercion")
-em.max <- em.max + scale_x_discrete(labels = my.labels)
-em.min <- em.min + scale_x_discrete(labels = my.labels)
-em.tot <- em.tot + scale_x_discrete(labels = my.labels)
+em.max <- em.max + scale_x_discrete(labels = my.labels) + xlab("")
+em.min <- em.min + scale_x_discrete(labels = my.labels) + xlab("")
 
-(em.max + em.min + em.tot + plot_layout(axis_titles = "collect"))
+(em.max + em.min + plot_layout(axis_titles = "collect"))
 
+em.swd <- (em.max + em.min + plot_layout(axis_titles = "collect"))
 
+```
+
+```{r, fig.width=10, fig.height=10}
+
+((em.swd/range.swd) + plot_annotation(tag_levels = "A"))
 
 
 ```
@@ -1210,16 +1069,127 @@ size.test <- datTot %>%
   summarize(stat = wilcox.test(Size.mm ~ Sex)$statistic,
             p_value = wilcox.test(Size.mm~Sex)$p.value)
 
-size.test #not significant for swordtail and sailfin, but significant for mosquitofish; this may be due to the low sample size for mosquiofish compared to the other two species
+size.test #not significant for swordtail and sailfin, but significant for mosquitofish; this may be due to the low sample size for mosquiofish compared to the other two species or the vastly different sizes of males and females in this species
 
-
-datTot %>%
+eff.size.tbl <- datTot %>%
   group_by(Species) %>%
-  summarise(
-    delta = effsize::cliff.delta(Size.mm ~ Sex, data = cur_data())$estimate,
-    CI_low = effsize::cliff.delta(Size.mm ~ Sex, data = cur_data())$conf.int[1],
-    CI_high = effsize::cliff.delta(Size.mm ~ Sex, data = cur_data())$conf.int[2]
-  )
+  summarise({
+    cd <- effsize::cliff.delta(Size.mm ~ Sex)
+    tibble(
+      delta= cd$estimate,
+    CI_low = cd$conf.int[1],
+    CI_high = cd$conf.int[2])})
+eff.size.tbl
+
 
 ### minimal effect size for swordtail and sailfin, but large effect size for mosquitofish. This is understandable seeing as females are often MUCH larger than males. However, size still had very little effect on temperature tolerance despite a size difference between sexes in this species. 
+```
+
+(7) Lengths figure and table
+
+```{r}
+### table
+
+stats_tbl <- eff.size.tbl %>%
+  left_join(size.test, by = "Species") %>%
+  mutate(
+    cliffs_delta = sprintf("%.2f", delta),
+    p.display = case_when(
+    p_value < 0.001 ~ "***p*** **<** **0.001**",
+    p_value < 0.05  ~ paste0("*p* = ", sprintf("%.3f", p_value)),
+    TRUE            ~ paste0("*p* = ", sprintf("%.3f", p_value))),
+
+  wilcox_res = paste0(p.display, " (W = ", sprintf("%.0f", stat), ")")) %>%
+  select(Species, cliffs_delta, wilcox_res)
+
+size.table <- sizes.fmt %>%
+  left_join(stats_tbl, by="Species")
+
+size.table %>%
+  gt() %>%
+  tab_header(title = "Average lengths (mm)") %>%
+  cols_label(
+    female       = "Female (SD)",
+    male         = "Male (SD)",
+    cliffs_delta = "Cliff’s δ",
+    wilcox_res   = "Wilcoxon") %>%
+  fmt_markdown(columns = wilcox_res) %>%
+  tab_style(
+      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(Species, female, male, cliffs_delta))) %>%
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_labels(columns = everything())) %>%
+  opt_horizontal_padding(scale = 2)
+
+
+### boxplot
+
+df.pval <- data.frame(label = c("ns", "ns", "p<0.001*"),
+                      Species = c("Swordtail", "Sailfin", "Mosquitofish"),
+                      x = c(1.5, 1.5, 1.5),
+                      y = c(39, 39, 39))
+
+bracket_data <- data.frame(
+  Species = "Mosquitofish", 
+  x = c(1, 1, 2, 2),
+  y = c(37.5, 38, 38, 37.5))
+
+
+dat.plot2 <- datTot %>%
+  mutate(
+    Sex.plot2 = case_when(
+      Sex == "male" ~ "Male",
+      Sex == "female" ~ "Female"))
+
+
+ggplot(dat.plot2, aes(x = Sex.plot2, y = Size.mm)) +
+  geom_rect(
+    data = subset(datTot, Species == "Sailfin"),
+    inherit.aes = FALSE,
+    xmin = -Inf, xmax = Inf,
+    ymin = -Inf, ymax = Inf,
+    fill = "grey95") +
+  geom_boxplot() +
+  geom_point(color= "#8D8680", size=2, alpha=0.5) +
+  facet_wrap(~ Species, scales = "free_x") +
+  geom_text(df.pval, mapping = aes(x=x, y=y, label=label))+
+  geom_path(
+    data = bracket_data, 
+    aes(x = x, y = y), 
+    inherit.aes = FALSE, 
+    linewidth = 0.5) +
+  theme_classic() + 
+  xlab("") +
+  ylab("Length (mm)")
+  
+
+```
+
+
+(8) Temp ranges for all species
+
+```{r}
+
+dat.plot3 <- rawTempData %>%
+  mutate(
+    Sex.plot3 = case_when(
+      Sex == "male" ~ "Male",
+      Sex == "female" ~ "Female"))
+
+ggplot(dat.plot3, aes(x = Sex.plot3, y = T.tot)) +
+  geom_rect(
+    data = subset(datTot, Species == "Sailfin"),
+    inherit.aes = FALSE,
+    xmin = -Inf, xmax = Inf,
+    ymin = -Inf, ymax = Inf,
+    fill = "grey95") +
+  geom_boxplot() +
+  geom_point(color= "#8D8680", size=2, alpha=0.5) +
+  facet_wrap(~ Species, scales = "free_x") +
+  theme_classic() + 
+  xlab("") +
+  ylab("Temperature range (°C) \n(CTmax-CTmin)")
+  
+
 ```
