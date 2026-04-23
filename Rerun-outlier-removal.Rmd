@@ -1,7 +1,7 @@
 ---
-title: "Final_temperature-analysis"
+title: "Rerun-outlier-removal"
 author: "Allison Davis Connelly & Sophia McKelvey"
-date: "2026-01-06"
+date: "2026-04-23"
 output: 
   html_document:
     toc: TRUE
@@ -105,13 +105,22 @@ rawTempData$Species <- factor(rawTempData$Species,
                         levels = c("X. nigrensis", "P. latipinna", "G. affinis"),
                         labels = c("Swordtail", "Sailfin", "Mosquitofish"))
 
+# remove mosquitofish ctmax outliers
+
+mosq <- rawTempData[rawTempData$Species == "Mosquitofish",]
+hist(mosq$CTmax.C)
+(out<- boxplot.stats(mosq$CTmax.C)$out) # three values <35degress
+(out_ind <- which(mosq$CTmax.C %in% c(out))) # rows 14-16; Rory, Loreli, Lane
+
+rawTempData <- rawTempData %>%
+  filter(!Name %in% c("Rory", "Loreli", "Lane"))
 
 ```
 
 
 ## Summery stats 
 
-Trial stats
+Trial stats: average CTmax now higher for mosquitofish (38.18 vs 37.58); three less females (9m:5f)
 
 ```{r}
 #remove unnecessary columns
@@ -179,7 +188,7 @@ summ.stats.all %>%
 ```
 
 
-Size stats
+Size stats: barely any change
 
 
 ```{r}
@@ -295,9 +304,8 @@ ggplot(datTot, aes(x = Sex, y = Size.mm)) +
 
 ### Model Selection
 
-Here, we will run linear models with CTmax as our dependent variable, and sex, species (plus their interaction), and size as our independent variables. We will select our final model based on ΔAIC scores from the 'MuMln' package.
 
-**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.498). However, the model with both species and sex has a delta value less than 2 (ΔAICc=0.7; weight=0.350), so we will also keep this model for the purpose of illustrating the limited effect of sex. 
+**Results:** The model containing just species as a dependent variable (mod1f) is still the most supported in our model selection (ΔAICc=0.0; weight=0.676). The model with both species and sex has a delta value of about 2 now (ΔAICc=2.24; weight=0.221), but we will still keep this model for the purpose of illustrating the limited effect of sex. 
 
 ```{r}
 # All models
@@ -319,9 +327,8 @@ model.sel(mod1, mod1b, mod1c, mod1d, mod1e, mod1f, mod1g)
 
 ### Residual checks
 
-Here, we will check if the model residuals are normal and homoscedastic using the 'DHARMa' package.
 
-**Results:** The species only model (most supported) showed significant outlier deviation (p=0.026). This is likely from the truncated nature of temperature data, making tail estimations less accurate. The sex and species model showed a failed KS test (p=0.048), which supports the decision for the species only model. Adding sex increases estimation noise without improving fit. We will then use robust standard errors to make a conservative assessment of factor significance. 
+**Results:** The species only model (most supported) NO LONGER shows a significant outlier deviation. Didn't realize those three trials were throwing the tails off so much. The sex and species model also passes tests. Robust standard errors no longer needed.
 
 ```{r}
 
@@ -332,9 +339,7 @@ plot(simulationOutput)
 
 plotResiduals(simulationOutput)
 plotResiduals(simulationOutput, form = rawTempData$Species)
-
-  ### Significant outlier deviation (p=0.26); likely due to truncated nature of temperature data
-
+   ### All good!
 
 # Species and sex model
 simulationOutput2 <- simulateResiduals(mod1c)
@@ -345,7 +350,7 @@ plotResiduals(simulationOutput2)
 plotResiduals(simulationOutput2, form = rawTempData$Species)
 plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
-  ### KS failure (p=0.48); not unexpected, given that it was a higher delta value; confirms the sex effect increases estimation noise without improving fit.
+  ### All good!
 
 
 ```
@@ -353,24 +358,23 @@ plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
 ### Model Summary
 
-Again, we will use robust standard errors to assess factor significance, as both models exhibited some deviation from normal. We will determine the overall effect of species (Anova from 'car' package), and calculate the estimated marginal means and a pairwise species comparison (emmeans package) all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors (coeftest from 'lmtest' package) to illustrate the effect of sex on the model. 
-
-**Results:** There is a significant effect of species for CTmax (P<0.001). Pairwise comparisons show swordtails to be significantly different to sailfin (p<0.001) and mosquitofish (p<0.001), but sailfin and mosquitofish do not significantly differ (p=0.061). Sex was confirmed as not a significant predictor in the model (estimate=0.284, SE=-.243, p=0.247).
+**Results:** There is a significant effect of species for CTmax (P<0.001). Pairwise comparisons show a significant difference between swordtails and sailfin (p<0.001) and mosquitofish (p<0.001), but no difference between sailfin & mosquitofish (p=0.687). Sex was confirmed as not a significant predictor in the model (estimate=0.047, SE=0.200, p=0.815).
 
 ```{r}
+
 # SPECIES ONLY MODEL
 
- ## Robust variance-covariance matrix
-robVCV.sp <- vcovHC(mod1f, type= "HC3")
+  ## Regular check (not robust)
+coeftest(mod1f, vcov. = vcovHC(mod1f, type= "HC3"))
 
- ## Overall species effect
-Anova(mod1f, vcov = robVCV.sp, type="II")
+  ## Overall species effect
+Anova(mod1f, type="II")
 
  ## EMM & Pairwise comparisons
 
-PW.sp.max <- emmeans(mod1f, "Species", vcov. = robVCV.sp)
+PW.sp.max <- emmeans(mod1f, "Species")
 summary(PW.sp.max) #EMM
-pairs(PW.sp.max) #Pairwise results
+pairs(PW.sp.max) #Pairwise results; now shows significant for all three species
       
   ## Plotting EMM
 
@@ -411,9 +415,8 @@ coeftest(mod1c, vcov. = vcovHC(mod1c, type= "HC3"))
 
 ### Model Selection
 
-We will repeat the above analysis with CTmin as our dependent variable, and sex, species (plus their interaction), and size as our independent variables. Then select our final model based on ΔAIC scores.
 
-**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.616). However, the model with both species and sex has a delta value less than 2 (ΔAICc=1.73; weight=0.259), so we will also keep this model for the purpose of illustrating the limited effect of sex. 
+**Results:** The full model containing no interactions was the most supported in our model selection (ΔAICc=0.0; weight=0.337). However, the species only model and the species+sex (no size effect) model also have a ΔAICc <2 (species only: ΔAICc= 0.04, weight= 0.329; spp+sex: ΔAICc = 0.35, weight=0.283).
 
 ```{r}
 # All models
@@ -428,18 +431,29 @@ mod2g <- lm(CTmin.C ~ Size.mm, data = datTot) #size only effect
 # Model selection
 model.sel(mod2, mod2b, mod2c, mod2d, mod2e, mod2f, mod2g)
 
-  ### Mod2f (species only effect) is the most supported model (ΔAICc=0; weight=0.616)
-  ### Mod1c (species and sex, no size) also has a ΔAICc < 2 (ΔAICc=1.73; weight=0.259), and we'll again keep this model just to illustrate the effects of sex.
+  ### Mod2b (full model, no interactions) is the most supported model (ΔAICc=0; weight=0.337)
+  ### Mod2f (species only) also has a ΔAICc < 2 (ΔAICc=0.04; weight=0.329)
+  ### Mod2c (species + sex) also has a ΔAICc < 2 (ΔAICc=0.35; weight=0.3283)
+  ### Will check out the summaries below to see if sex or size truly impacts the model; if so, will average the models
 
 ```
 
 ### Residual checks
 
-Here, we will check if the model residuals are normal and homoscedastic.
-
-**Results:** Both the species only (most supported) and species + sex model are heteroscedastic. This is driven by species-level differences in variation. Robust standard errors will allow us to assess the significance of the effects despite this heteroscedasticity. 
+**Results:** Both the full model and species only are heteroscedastic. This is driven by species-level differences in variation. Robust standard errors will allow us to assess the significance of the effects despite this heteroscedasticity. Species + sex model passes residual checks, although does show a failed Levene's test when plotted by species (not sure if that means I do normal or robust SEs).
 
 ```{r}
+
+# full model, no interactions
+simulationOutput <- simulateResiduals(mod2b)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = rawTempData$Species)
+
+  ### Failed predicted vs quantile deviations & Levene's test
+
 
 # Species only model
 simulationOutput <- simulateResiduals(mod2f)
@@ -461,7 +475,7 @@ plotResiduals(simulationOutput2)
 plotResiduals(simulationOutput2, form = rawTempData$Species)
 plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
-  ### Failed Levene's test driven by species-level variation differences
+  ### Fine in overall plots, but by species shows a failure in Levene's test
 
 
 ```
@@ -469,11 +483,18 @@ plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
 ### Model Summary
 
-Again, we will use robust standard errors to assess factor significance, as this method can tolerate the heteroscedasticity we detected in our model residuals. We will determine the overall effect of species, calculate the estimated marginal means and run a pairwise species comparison all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors to illustrate the effect of sex on the model. 
+Did a quick summary of the top three models: species is the only significant effect in all three models (sex and size aren't significant). Will stick with the species only model as the top supported and then show the species + sex model just to highlight the effects of sex.
 
-**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show all species as significantly different, although the trend was much stronger with swordtail comparisons (swordtail-sailfin: p<0.001; swordtail-mosquitofish:p<0.001; sailfin-mosquitofish: p=0.004). Sex was again confirmed as not a significant predictor in the model (estimate=0.230, SE=0.243, p=0.348).
+**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show all species as significantly different: swordtail-sailfin= p<0.001; swordtail-mosquitofish=p<0.001; sailfin-mosquitofish= p=0.001). Sex was a signifcant predictor in the sex + species model (estimate=0.444, SE=0.200, p=0.030). Again, the model selection picked it out as a competitive model, but the summary doesn't show an effect of sex so really not sure how to interpret this.  
 
 ```{r}
+# QUICK CHECK
+summary(mod2b) #sex and size not significant
+summary(mod2f) #species still significant
+summary(mod2c) #size not significant
+
+  ### Will proceed with mod2f (species only) as this is the most parsimonious, and adding sex & size doesn't add much
+
 # SPECIES ONLY MODEL
 
  ## Robust variance-covariance matrix
@@ -741,14 +762,14 @@ simulate_MDD <- function(nsim=1000, species, nM, nF, sigma, alpha=0.05,
 
 species <- c("sailfin","mosquitofish","swordtail")
 nM <- c(16, 9, 15)
-nF <- c(16, 8, 15)
+nF <- c(16, 5, 15)
 
 # Replace these sigma values with the residual SD from your real LMs
-sigma_CTmax <- 1.029198   # summary(mod1f)$sigma
-sigma_CTmin <- 1.409949   # summary(mod2f)$sigma
+sigma_CTmax <- 0.8328148   # summary(mod1f)$sigma
+sigma_CTmin <- 1.389272   # summary(mod2f)$sigma
 
 # Run simulations
-MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.7°C
+MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.5°C
 MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.9°C
 
 CTmax_df <- MDD_CTmax$power_curve %>% mutate(Trait="CTmax", MDD=MDD_CTmax$MDD)
@@ -781,14 +802,13 @@ Comparisons:
 males <- rawTempData[rawTempData$Sex == "male",]
 females <- rawTempData[rawTempData$Sex == "female",]
 
-(mean(males$CTmax.C))- (mean(females$CTmax.C)) #0.297°C
-(mean(males$CTmin.C))- (mean(females$CTmin.C)) #0.163°C
+(mean(males$CTmax.C))- (mean(females$CTmax.C)) #0.196°C
+(mean(males$CTmin.C))- (mean(females$CTmin.C)) #0.089°C
 
 df <- data.frame(
   type = c("CTmax", "CTmin"),
-  Actual   = c(0.3, 0.2),
-  Simulated   = c(0.7, 0.9)
-)
+  Actual   = c(0.3, 0.1),
+  Simulated   = c(0.5, 0.9))
 
 df %>%
   gt() %>%
@@ -806,7 +826,7 @@ df %>%
 
 # **Summary**
 
-We were interested in whether sex played a role in thermal tolerance due to preexisting sex-based differences, such as sexually selected traits, size, or behavior. We tested for sex-biased tolerance in CTmax and CTmin trials in three livebearing species: sailfin mollies (*P. latipinna*), Western mosquitofish (*G. affinis*), and Panuco swordtail (*X. nigrensis*). We also tested whether mating strategies within one species (swordtail) affected thermal tolerance.
+WILL UPDATE AFTER DISCUSSING WITH MIKE
 
 In both trials (CTmax, CTmin), sex did ***not*** influence thermal tolerance. Instead, only species differences affected thermal tolerance. In general, mosquitofish tolerated the most extreme temperatures, followed by sailfin. Swordtails had the narrowest and weakest thermal tolerance, owing likely to the consistency of temperature at their place of origin (e.g spring-fed rivers).
 
@@ -1251,5 +1271,3 @@ p_mosq  <- plot_species_dynamic(df_wide %>% filter(Species == "Mosquitofish"))
 
 
 ```
-
-
