@@ -1,0 +1,883 @@
+---
+title: "temp_final-analysis"
+author: "Allison Davis & Sophia McKelvey"
+date: "2024-11-19"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 5
+    toc_float:
+      collapsed: FALSE
+      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Temperature experiment
+
+***In this final analysis document, we will narrow down the tests that will end up in our paper. Unlike our exploratory analysis, we will go from big picture to small.***
+
+*Purpose:* Our interest lies in whether sexually selected traits have deleterious effects on males' ability to tolerate change. This is from an observation of males dying when sampling during hot months but females surviving fine. 
+
+*Hypothesis:* (1) Sexually selected traits decrease resistance to environmental change across species; and (2) courtship displays further decrease resistance to environmental change within a species. 
+
+*Predictions:*
+  - Males of fish with elaborate traits have a narrower thermal tolerance--i.e. lower thermal maximums and higher thermal minimums--compared to females of these species.
+  - Males of fish without elaborate traits will have a similar tolerance to females of the same species.
+  - Males performing courtship displays have a narrower thermal tolerance compared to males using coercion (within swordtails).
+  
+*MAIN QUESTION(S):*
+  (1) Regardless of size differences, do males and females of the three species differ in their thermal tolerance (max, min, tot) due to sexually selected traits?
+  (2) Regardless of the size differences, do the two males and female of the swordtail species differ in their thermal tolerance (max, min, tot) due to mating strategies?
+  (3) When we include size as a factor, is it more explanatory than sex or species? This will be included in the models of questions 1 and 2.
+  
+
+***
+
+
+# Data
+
+All analyses were conducted using R version 4.4.2 ***CHANGE TO YOUR VERSION***
+
+## Load required libraries
+
+Remove the '#' in the code below if it is the first time installing library. 
+
+```{r}
+#install.packages("curl")
+library(curl)
+
+#install.packages("dplyr")
+library(dplyr)
+
+#install.packages("lme4")
+library(lme4)
+
+#install.packages("lmerTest")
+library(lmerTest)
+
+#install.packages("ggplot2")
+library(ggplot2)
+
+#install.packages("DHARMa")
+library(DHARMa)
+
+#install.packages("HLMdiag")
+#library(HLMdiag)
+
+#install.packages("emmeans")
+library(emmeans)
+
+#install.packages("vcd")
+library(vcd)
+
+#install.packages("sjstats")
+library(sjstats)
+
+#install.packages("sjPlot")
+library(sjPlot)
+
+
+```
+
+## Read in data.
+
+```{r}
+
+rawdata_1 <- curl("https://raw.githubusercontent.com/sophia-m0823/TestRStudio/main/Temp%20ID%20-%20Completed%20Data.csv")
+
+rawdata_1 <- read.csv(rawdata_1, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(rawdata_1)
+
+
+```
+
+## Separate into species
+
+```{r}
+#create a data frame for sailfin by selecting data from your raw data frame with P. latipinna as the species.
+sailfin_1 <- rawdata_1[rawdata_1$Species =="P. latipinna",]   ### first = row, then column
+
+
+#create a dataframe for mosquitofish by selecting data from your raw dataframe with G. affinis as the species.
+mosquito_1 <- rawdata_1[rawdata_1$Species =="G. affinis",]
+
+#create a dataframe for swordtails by selecting data from your raw dataframe with X. nigrensis as the species.
+swordtail_1 <- rawdata_1[rawdata_1$Species =="X. nigrensis",]
+
+
+```
+
+## Check normality
+
+For many statistical tests, we would want to check the normality of the raw data using a shapiro test and/or qqplots prior to running the stat test. HOWEVER, with general linear models, we need to examine the residuals of the mixed effects models to see if they are normal. SINCE we don't have multiple data points for each individual (eg. they only went through the hot trial once, so they only have one point for ctmax), we don't actually need to include it as a random effect. This is why you got the error message of 'not enough variation' last time you tried. 
+
+Still double checking whether we need to do any other normality check with our fixed effects (waiting for an email response). In the meantime, use the code below to check for normality of the fixed effects residuals. You have to create the models first in order to use this code, so just copy/paste and edit the code below after you run your models to check for normality.
+
+The DHARMa package should provide us with good visuals and stats to confirm normality of fixed effects residuals. However, if you have any errors with this, you can also try the method below it using the HLMdiag package (will need to install and load prior to use).
+
+
+For more details on HLMdiag method, check out this video: https://www.youtube.com/watch?v=O2W3tg4rvf0
+
+```{r}
+
+#Simulated residuals plots using DHARMa package
+
+mod <- model_name
+
+simulationOutput <- simulateResiduals(mod)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = data_frame$sex)
+plotResiduals(simulationOutput, form = data_frame$species)
+plotResiduals(simulationOutput, form = data_frame$z.score)
+
+
+##alternative method using HLMdiag package
+### Extract level 1 residuals (fixed effects)
+
+#L1_residuals <- hlm_resid(model, level=1, standardize = T)
+#head (L1_residuals, 10)
+
+##since we have only 1 data point per individual, we'll be using the std.resid
+
+#Normality of level 1 (fixed effects)
+#shapiro.test(L1_residuals$std.resid)
+
+#qqnorm(L1_residuals$std.resid, pch =1, frame =F)
+#qqline(L1_residuals$std.resid, lwd =2)
+
+
+```
+
+
+# Z-scores
+
+Since the species vary in size, and we want to see if there are thermal differences regardless of size, we need to standardize the size measurements. We'll do this for the whole data set. ***NOTE***: previously, I said sex and species, but now that I'm thinking about it, it makes more sense to just do the whole data set. If we want to remove the effect of size, and females are on average larger than males, if we calculate z-scores within each sex, there is still a difference in size between them. Doing it based on species alone still gives us a difference in size between the species (ex swordtails are much smaller than sailfins). BUT if we do z-scores across everyone, then we'll get an average size measurement to use. 
+
+If we need to do smaller comparisons, we may have to calculate z-scores based on species, but for now let's do the whole set. 
+
+
+```{r}
+
+z.score <- scale(rawdata_1[, A], center = TRUE, scale = TRUE)
+##replace A with the column number for Size.mm
+
+rawdata_2 <- cbind(rawdata_1, z.score)
+
+
+```
+
+***
+
+# Analysis
+
+Remember, big to small here. Also remember, any time we need to include the size, we need to use the z-scores NOT the raw size data.
+
+## Question 1
+
+Regardless of size differences, do males and females of the three species differ in their thermal tolerance (max, min, tot) due to sexually selected traits?
+
+### CTmax
+
+FYI: when choosing the better model, check to see if one of the models is significant (when you run anova) and it should also have a lower AIC value. So, if the AIC value is lower, and it is significant or very close to significant, than that is the best model to choose.
+
+```{r}
+
+#we'll do a full model with interaction
+model.1a <- glmer(CTmax.C ~ Sex*Species + z.score, data=rawdata_2)
+
+
+#now a reduced model without interaction
+model.1b <- glmer(CTmax.C ~Sex + Species + z.score, data = rawdata_2)
+
+#Test for significance of the interaction term (fixed effects)
+anova(model.1a, model.1b, refit=F)
+
+#let's also check that z.score size improves our model
+##we'll create a model without z.score and then test it against either the full or reduced model (whichever one had a lower AIC number).
+
+model.1red <- glmer(CTmax.C ~ Sex* Species, data=rawdata_2) #change to Sex+species if that model was better in the first comparison
+
+anova(model.1red, A) #where A is the full or reduced model, depending on AIC value
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+## replace A with the name of the best model
+summary(A)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+#the summary function isn't always very useful or intuitive to understand, so we can also take a look/visualize with emmeans. 
+##check out <> for more info
+
+#replace model_A with the name of the best model
+##may give an error message if the interaction of species and sex is important (ie if you use the full model)
+model_A %>%
+  emmeans(pairwise~species) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+model_A %>%
+  emmeans(pairwise~sex) %>% 
+  plot()
+
+#if you do use the full model and have sex*species:
+emmeans_interaction <- emmeans(model, pairwise ~ sex * species, adjust="tukey") #should automatically do a tukey adjustment, but just in case, we'll specify it
+emmeans_interaction
+
+
+
+
+
+```
+
+### CTmin
+
+Repeat above for CTmin
+
+```{r}
+
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+
+
+
+```
+
+### Tot temp
+
+Repeat above for Tot temp
+
+```{r}
+
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+
+```
+
+
+
+
+### Check normality of final models
+
+See tab above for the code
+
+
+```{r}
+
+#CTmax 
+
+
+#CTmin
+
+
+#Tottemp
+
+
+```
+
+
+### Interpret and visualize model results
+
+TBH haven't used this before, so let's zoom and look over the results of the code below together. 
+
+Replace 'A' with the final model chosen (full or reduced) and repeat the code for CTmin and tot temp.
+
+```{r}
+#to interpret model results
+
+##CTmax
+get_model_data(A,type="pred", terms = c("sex", "species"))
+
+##CTmin
+
+
+##Tot temp
+
+
+```
+
+#### Plot results
+
+IF THE INTERACTION EFFECT IS THE BEST MODEL:
+
+```{r}
+##CTmax
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+CTMAX_int <- plot_model(A, 
+             type = "int",
+             axis.title = c("Species", "CTmax (C)"), 
+             legend.title = c("sex"), 
+             title = "Effect of sex and species on CTmax")
+
+CTMAX_int
+
+```
+
+
+
+IF THE MODEL WITHOUT INTERACTION IS THE BEST:
+```{r}
+
+##CTmax
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with species on the x, CTmax on the y, and two lines for sex
+CTMAX_results <- plot_model(A, 
+             type = "pred", 
+             terms = c("species", "sex"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("species", "CTmax"), 
+             legend.title = c("sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, two predictor lines for the two sexes and different graphs/facets for each species
+
+CTMAX_results2 <- plot_model(A, 
+             type = "pred", 
+             terms = c("z.score", "sex", "species"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (z.scores)", "CTmax"), 
+             legend.title = c("sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results2
+
+##using the type="eff" parameter will let us know the effects of each individual parameter while holding the other variables constant. TBH not totally sure if it will look different from the graphs above, but I think the type=pred allows you to look at the effects of all the specified terms acting together, while type=eff focuses on one while holding others constant. The package info just states that type=pred shows predicted values for specific model terms, while type=eff is similar to type=pred, but discrete predictors are held constant at their proportions (not reference level). Don't know the difference of proportions vs reference level though...
+### SO the x-axis will be the levels or values (sex:male/female, species:all 3 speices, length: all z.scores) and the y-axis the is the predicted temperature averaged over the other variables/holding the other variables constant
+
+CTMAX_results3 <- plot_model(A, 
+             type = "eff") #will create a plot for each effect
+             
+
+CTMAX_results3
+
+
+
+##CTmin
+
+
+##Tot temp
+
+
+
+
+
+
+```
+
+
+
+### Question 1 results
+
+TYPE RESULTS HERE SO IT'S EASY TO FIND WHEN LOOKING BACK
+
+
+***
+
+
+## Question 2
+
+Regardless of the size differences, do the two males and female of the swordtail species differ in their thermal tolerance (max, min, tot) due to mating strategies?
+
+We'll be repeating a lot of the code above for this, but just within swordtails.
+
+I *THINK* you'll need to do z-scores within this species alone for this.
+
+```{r}
+z.score.SW <- scale(swordtail_1[, A], center = TRUE, scale = TRUE)
+##replace A with the column number for Size.mm
+
+swordtail_2 <- cbind(swordtail_1, z.score.SW)
+
+```
+
+
+Also, since females don't have a mating strategy, and the size of males corresponds with their mating strategy (large=courting, small=coercive), I think it would be best/easiest for our model to create a new sex column with three factors: female, male.large, and male.small. That way we won't have to worry about one of our groups (ie females) not having a factor for mating strategy. SO let's create a new column. The size.cat column is basically what we want, since it has a value for the two males and for females, but let's make some more intuitive labels.
+
+
+```{r}
+
+swordtail_2$sex.2 <- swordtail_2$Sex #duplicates column
+
+#replace values in new column
+swordtail_2$sex.2 <- gsub("large", "male.large", swordtail_2$sex.2)
+swordtail_2$sex.2 <- gsub("small", "male.small", swordtail_2$sex.2)
+swordtail_2$sex.2 <- gsub("reg", "female", swordtail_2$sex.2)
+
+
+```
+
+
+Now for the model
+
+### CTmax
+
+Remember, to address mating style and sex we'll use the new column, sex.2
+
+```{r}
+
+#we'll do a full model with z.score size; NOTE: there is no interaction effect here, since sex and mating style are just one factor now.
+model.2a <- glmer(CTmax.C ~ sex.2 + z.score, data=swordtail_2)
+
+
+#now a reduced model without z.score size
+model.2b <- glmer(CTmax.C ~Sex + sex.2, data = swordtail_2)
+
+#Test for significance of the size term
+anova(model.2a, model.2b, refit=F)
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+## replace A with either the full or reduced model name
+summary(A)
+
+#this may give you an error, since there's been a change in the syntax for the lme4 package since version 4.1.2. If you get an error, remove the '#' and run the code below
+## summary(full, use.hessian = FALSE)
+
+#the summary function isn't always very useful or intuitive to understand, so we can also take a look/visualize with emmeans. 
+##check out <> for more info
+
+#replace model_A with the name of the best model
+##may give an error message if the interaction of species and sex is important (ie if you use the full model)
+model_A %>%
+  emmeans(pairwise~sex.2) %>% 
+  plot() #will plot group means with 95% confidence intervals
+
+
+
+```
+
+### CTmin
+
+Repeat above for CTmin
+
+```{r}
+
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+
+
+
+```
+
+### Tot temp
+
+Repeat above for Tot temp
+
+```{r}
+
+
+
+```
+
+#### Summary of final chosen model
+
+```{r}
+
+
+```
+
+
+
+
+### Check normality of final models
+
+See tab above for the code
+
+
+```{r}
+
+#CTmax 
+
+
+#CTmin
+
+
+#Tottemp
+
+
+```
+
+
+### Interpret and visualize model results
+
+TBH haven't used this before, so let's zoom and look over the results of the code below together. 
+
+Replace 'A' with the final model chosen (full or reduced) and repeat the code for CTmin and tot temp.
+
+```{r}
+#to interpret model results
+
+##CTmax
+get_model_data(A,type="pred", terms = c("sex", "mating"))
+
+##CTmin
+
+
+##Tot temp
+
+
+```
+
+
+NOTE: since we don't have an interaction term for this model, we won't be using type="int" in our plots. We'll stick to "pred" and "eff". 
+
+
+```{r}
+#plot results
+
+##CTmax
+set_theme(base = theme_bw(), panel.minor.gridcol = 'white')
+
+##using the type="pred" parameter allows us to visualize how specific terms affect our outcome variable. This will create a graph with sex/mating categories on the x, and CTmax on the y.
+CTMAX_results_SW <- plot_model(A, 
+             type = "pred", 
+             terms = c("sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("species", "CTmax"), 
+             legend.title = c("sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results_SW
+
+
+#now lets also include size. This will create a figure with size as the x-axis, ctmax as the y, and three predictor lines for the sexes/mating styles
+
+CTMAX_results2_SW <- plot_model(A, 
+             type = "pred", 
+             terms = c("z.score", "sex.2"),
+             colors=c("#2980b9", "#16a085", "#f39c12"), 
+             axis.title = c("Length (z.scores)", "CTmax"), 
+             legend.title = c("sex"), title = "CTmax of males and females across all species")
+
+CTMAX_results2_SW
+
+##using the type="eff" parameter will let us know the effects of each individual parameter while holding the other variables constant. TBH not totally sure if it will look different from the graphs above, but I think the type=pred allows you to look at the effects of all the specified terms acting together, while type=eff focuses on one while holding others constant. The package info just states that type=pred shows predicted values for specific model terms, while type=eff is similar to type=pred, but discrete predictors are held constant at their proportions (not reference level). Don't know the difference of proportions vs reference level though...
+### SO the x-axis will be the levels or values (sex:male/female, species:all 3 speices, length: all z.scores) and the y-axis the is the predicted temperature averaged over the other variables/holding the other variables constant
+
+CTMAX_results3_SW <- plot_model(A, 
+             type = "eff") #will create a plot for each effect
+             
+
+CTMAX_results3_SW
+
+
+
+##CTmin
+
+
+##Tot temp
+
+
+
+
+
+
+```
+
+
+
+
+### Question 2 results
+
+TYPE RESULTS HERE SO IT'S EASY TO FIND WHEN LOOKING BACK
+
+***
+
+
+# Visualizations
+
+This will be a section to create and save all of your figures. Some may be repeats of what you've done above, but it's nice to have it all in one spot. To save a figure as a jpeg/pdf/png etc, use the code below. This will matter most when we figure out what the publisher wants your figures saved as. 
+
+< save_plot(filename=image_name.jpg, fig=figure_name, width=30, height=19) >
+  - replace .jpg with .pdf, .png etc to change file format
+  - adjust width and height numbers as needed/wanted
+
+
+
+## Summary stats
+
+Here we'll just have some basic summary stats plots. These may be included in supplementary material, but chances are, they're not informative enough for the main text.
+
+```{r}
+#comparing proportion of males and females tested in each species
+mVf<- rawdata_2 %>%
+  group_by(species) %>%
+  plot_freq(sex) %>%
+  plot_grid()
+mVf
+
+mVf2 <- plot_grpfrq(var.cnt=rawdata_2$species, var.grp=rawdata_2$sex)
+mVf2
+
+
+```
+
+## Model visualizations
+
+Copy the visualizations of the final chosen models you performed above.
+
+
+```{r}
+#Question1
+##CTMax
+
+###Table
+CTmax_table <- tab_model(model_name, show.reflvl=T, show.intercept=F, p.style="numeric_stars")
+CTmax_table
+
+##CTmin
+
+
+###Table
+
+
+
+##Tottemp
+
+
+###Table
+
+
+
+########################
+
+#Question2
+
+##CTmax
+
+
+
+
+###Table
+
+
+
+##CTmin
+
+
+
+###Table
+
+
+
+##Tottemp
+
+
+###Table
+
+
+
+
+```
+
+## Species visualizations
+
+### Simple
+
+Here we'll have the box plots you created beforehand, just as a quick visualization of the sexes within each species.
+
+```{r}
+#male v female max temp in sailfin
+sailfin_boxplot1 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = CTmax.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex in Sailfins",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+  
+
+print(sailfin_boxplot1)
+
+
+#male v female max temp in mosquitofish
+mosquito_boxplot1 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = CTmax.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot1)
+
+
+
+#male v female max temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot4 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = CTmax.C,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Maximum Temperatures by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Temperature (°C)",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot4)
+
+#male v female min temp in sailfin
+sailfin_boxplot2 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = CTmin.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex in Sailfins",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(sailfin_boxplot2)
+
+
+#male v female min temp in mosquitofish
+mosquito_boxplot2 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = CTmin.C,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Temperature (°C)"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot2)
+
+#male v female min temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot5 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = CTmin.C,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Minimum Temperatures by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Temperature (°C)",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot5)
+
+#male v female tot temp in sailfin
+sailfin_boxplot3 <- ggplot(data = sailfin_1, 
+                           aes(x = Sex,
+                               y = T.tot,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex in Sailfins",
+    x = "Sex",
+    y = "Thermal Range"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(sailfin_boxplot3)
+
+
+#male v female tot temp in mosquitofish
+mosquito_boxplot3 <- ggplot(data = mosquito_1, 
+                           aes(x = Sex,
+                               y = T.tot,
+                               fill = Sex)) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex in Mosquito Fish",
+    x = "Sex",
+    y = "Thermal Range"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue"))
+
+print(mosquito_boxplot3)
+
+#male v female tot temp in swordtail (might want to either create another graph distinguishing between small and large males or just add size category as a shape difference)
+swordtail_boxplot6 <- ggplot(data = swordtail_1, 
+                             aes(x = interaction(Sex, Size.cat),
+                                 y = T.tot,
+                                 fill = interaction(Sex, Size.cat))) +
+  geom_boxplot(color = "black") +
+  labs(
+    title = "Total Thermal Range by Sex and Size in Swordtails",
+    x = "Sex and Size Category",
+    y = "Thermal Range",
+    fill = "Legend"
+  ) +
+  theme_classic() +
+  scale_fill_manual(values = c("salmon", "blue", "forestgreen"))
+
+print(swordtail_boxplot6)
+
+
+```
+
+### Complex
+
+Here we'll include size as a variable in our figures as well. The final figures should have size as the x-axis, the temp (max, min, or total) as the y-axis, and two regression lines for the sex (I'll send you a photo so you know what it should look like). For swordtails, you'll have one graph that is just male and female regression lines, then a second graph for male-courting, male-coercive, and female, so three regression lines.
+
+
+NOTE: may not actually need, depending on how the model graphs come out. We'll come back to this after you run the model plots.
+
+```{r}
+
+
+
+
+
+```
+
+
