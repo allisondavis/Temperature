@@ -14,13 +14,13 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Purpose
+# **Purpose**
 
-For our CTmin and CTmax trials, we set the Arduino system to manage a rate of +/- 0.3°C/minute. However, factors such as temperature dispersal, ambient room temperature, and chilling mechanisms (see Methods in associated paper) may affect the actual rate experienced. Here, we calculated the average temperature rate for each trial type (CTmax, CTmin) and each species (mosquitofish, sailfin, swordtail). We then compare these averages to the goal rate (+/- 0.3°C/min), an alternative minimum rate (-0.1°C/min) and among species to confirm similar rate exposure. 
+For our CTmin and CTmax trials, we set the Arduino system to a desired rate of +/- 0.3°C/minute. However, factors such as temperature dispersal, ambient room temperature, and chilling mechanisms (see Methods in associated paper) may affect the actual rate experienced. Here, we calculated the average temperature rate for each trial type (CTmax, CTmin) and each species (mosquitofish, sailfin, swordtail). We then compare these averages to the goal rate (+/- 0.3°C/min), an alternative minimum rate (-0.1°C/min) and among species to confirm similar rate exposure. 
 
-# Data
+# **Data**
 
-All rates were calculated in excel (see supplementary data sheets) by fitting a simple linear model of temperature by second, then converted to degree/minute. We excluded one trial (Gambusia, CTmin, 7 Nov 23) as the data sheet only captured the second half of the trial. 
+All rates were calculated in excel (see supplementary data sheets in **Extras** folder) by fitting a simple linear model of temperature by second, then converted to degree/minute. We excluded one trial (Gambusia, CTmin, 7 Nov 23) as the data sheet only captured the second half of the trial. 
 
 
 All analyses were conducted using R version 4.4.2 
@@ -28,9 +28,9 @@ All analyses were conducted using R version 4.4.2
 
 ## Load required libraries
 
-Remove the '#' in the code below if it is the first time installing library. 
+Remove the '#' prior to `install.packages` if it is the first time installing library. 
 
-```{r}
+```{r, message=FALSE}
 #install.packages("curl")             #v5.2.1
 library(curl)
 
@@ -54,7 +54,12 @@ library(ggplot2)
 ## Read in data
 
 ```{r}
+# OPTION 1: download 'rate_calc.csv' into working directory 
+rates <- read.csv("rate_calc.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(rates)
 
+
+# OPTION 2: load from Github repository
 rates <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/rate_calc.csv")
 
 rates <- read.csv(rates, header = TRUE, sep = ",", stringsAsFactors = TRUE)
@@ -82,9 +87,9 @@ min.rates <- rates[rates$Trial =="CTmin",]
 ```
 
 
-## Analysis
+# **Analysis**
 
-### Summary statistics
+## Summary statistics
 
 **Rates by trial**
 
@@ -92,22 +97,12 @@ Average rates per trial type (CTmax, CTmin) for all species combined.
 
 ```{r}
 
+#calculate average rate per trial type
 trial.rates <- rates %>%
   group_by(Trial) %>%
   summarize(Rate=mean(Rate, na.rm=TRUE), .groups = "drop")
 
-trial.rates %>%
-  gt() %>%
-  tab_header(title = "Average rates for trials") %>%
-    cols_label(Trial ="Trial type",
-               Rate = "Temp change (°C/min") %>%
-    fmt_number(columns = c("Rate"), decimals = 3) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c("Trial"))) %>%
-  tab_style(
-    style = cell_text(align = "center"),
-    locations = cells_column_labels(columns = everything()))
+trial.rates
 
 ```
 
@@ -116,6 +111,7 @@ trial.rates %>%
 Average rates per trail type (CTmax, CTmin) per species (mosquitofish, sailfin, swordtail)
 
 ```{r}
+#calculate average rate per trial per species
 trial.rates2 <- rates %>%
   group_by(Trial, Species) %>%
   summarize(trial.rate=mean(Rate, na.rm=TRUE),
@@ -125,39 +121,30 @@ trial.rates2 <- rates %>%
             max= max(Rate, na.rm = TRUE),
             .groups = "drop")
 
-trial.rates2 %>%
-  gt() %>%
-  tab_header(title = "Trial rates summaries") %>%
-    cols_label(Trial ="Trial type",
-               Species = "Species",
-               trial.rate = "Temp change (°C/min)",
-               stand.dev = "Standard deviation",
-               min = "Minimum (°C)",
-               Median = "Median (°C)",
-               max = "Maximum (°C)") %>%
-    fmt_number(columns = c("trial.rate", "stand.dev", "min", "max", "Median"), decimals = 3) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c("Trial", "Species", "trial.rate", "stand.dev", "min", "Median"))) %>%
-  tab_style(
-  style = cell_borders(
-    sides = "bottom",
-    color = "darkgray",
-    weight = px(2.5)),
-  locations = cells_body(rows = 3)) %>%
-  tab_style(
-    style = cell_text(align = "center"),
-    locations = cells_column_labels(columns = everything())) %>%
-  opt_horizontal_padding(scale=2)
+trial.rates2
 
 ```
 
+
+## Normality 
+
+**Results:** Despite normality, we will use non-parametric tests for our subsequent comparisons due to a small sample size (16 trials in CTmax and 14 trials in CTmin).
+
+```{r}
+#check normality
+normal <- rates %>%
+  group_by(Trial, Species) %>%
+summarize(statistic =shapiro.test(Rate)$statistic,
+          p.value = shapiro.test(Rate)$p.value)
+
+normal #normal for all trials and all species
+
+```
 
 **Histograms for CTmax and CTmin trials**
 
 ```{r}
 # 5 bins chosen following Sturges's Rule
-
 hist.max <- ggplot(max.rates, aes(x = Rate)) +
   geom_histogram(bins = 5, fill = "grey", color = "black") +
   facet_wrap(~Species) +
@@ -173,97 +160,38 @@ hist.min
 
 ```
 
-#### Normality 
 
-Despite normality, we will use non-parametric tests for our subsequent comparisons due to a small sample size (16 trials in CTmax and 14 trials in CTmin).
 
-```{r}
-normal <- rates %>%
-  group_by(Trial, Species) %>%
-summarize(statistic =shapiro.test(Rate)$statistic,
-          p.value = shapiro.test(Rate)$p.value)
-
-normal #normal for all trials and all species
-
-```
-
-### Comparison to target rate
+## Comparison to target rate
 
 Testing if CTmax trials met a rate of 0.3°C/minute and if CTmin trails met a rate of -0.3°C/minute. Will do this for all trails first, then repeat within species. 
 
 ```{r}
 # All CTmax and all CTmin trials
-
 wilcox.test(max.rates$Rate, mu=0.3) #significant (p<0.001)
 wilcox.test(min.rates$Rate, mu=-0.3) #significant (p<0.001)
 
 
 
 # CTmax by species
-
 wt <- max.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=0.3)$p.value) %>%
-  mutate(p.display = case_when(
-    p.value < 0.001 ~ "*p* < 0.001^*^",
-    p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
-    TRUE            ~ sprintf("%.3f", p.value)))
+          p.value = wilcox.test(Rate, mu=0.3)$p.value)
 
-wt %>%
-  gt() %>%
-  cols_hide(p.value) %>%
-  tab_header(title = "CTmax goal rate comparison") %>%
-    cols_label(Species = "Species",
-               statistic = "Wilcoxon statistic",
-               p.display = md("*p*-value")) %>%
-  fmt_markdown(columns = p.display) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c("Species", "statistic"))) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = p.display,
-      rows = p.value < 0.05)) %>%
-  cols_align(align="center", everything()) %>%
-   opt_horizontal_padding(scale=2)
-
+wt
 ### Only swordtail CTmax trial rates differed from 0.3degC/min (p=0.031).
 
 
 
 
 # CTmin by species
-
 wt2 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=-0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.3)$p.value) %>%
-  mutate(p.display = case_when(
-    p.value < 0.001 ~ "*p* < 0.001^*^",
-    p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
-    TRUE            ~ sprintf("%.3f", p.value)))
+          p.value = wilcox.test(Rate, mu=-0.3)$p.value) 
 
-wt2 %>%
-  gt() %>%
-  cols_hide(p.value) %>%
-  tab_header(title = "CTmin goal rate comparison") %>%
-    cols_label(Species = "Species",
-               statistic = "Wilcoxon statistic",
-               p.display = md("*p*-value")) %>%
-  fmt_markdown(columns = p.display) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c("Species", "statistic"))) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = p.display,
-      rows = p.value < 0.05)) %>%
-  cols_align(align="center", everything()) %>%
-   opt_horizontal_padding(scale=2)
-
+wt2
 ### Only swordtail CTmin trial rates differed from -0.3degC/min (p=0.031).
 
 ```
@@ -275,42 +203,18 @@ Due to the difficulties in reaching a -0.3°C/min rate, a common alternative rat
 ```{r}
 
 # All CTmin trials
-
 wilcox.test(min.rates$Rate, mu=-0.1) #not significant (p=0.502)
 
 
 
 
 # CTmin by species
-
 wt3 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =wilcox.test(Rate, mu=-0.1)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.1)$p.value) %>%
-  mutate(p.display = case_when(
-    p.value < 0.001 ~ "*p* < 0.001^*^",
-    p.value < 0.05  ~ paste0(sprintf("%.3f", p.value), "^*^"),
-    TRUE            ~ sprintf("%.3f", p.value)))
+          p.value = wilcox.test(Rate, mu=-0.1)$p.value) 
 
-wt3 %>%
-  gt() %>%
-  cols_hide(p.value) %>%
-  tab_header(title = "CTmin alt rate comparison") %>%
-    cols_label(Species = "Species",
-               statistic = "Wilcoxon statistic",
-               p.display = md("*p*-value")) %>%
-  fmt_markdown(columns = p.display) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c("Species", "statistic"))) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = p.display,
-      rows = p.value < 0.05)) %>%
-  cols_align(align="center", everything()) %>%
-   opt_horizontal_padding(scale=2)
-
+wt3
 ### No CTmin rates in any species differ from -0.1degC/min.
 
 
@@ -318,7 +222,7 @@ wt3 %>%
 
 
 
-### Differences between species
+## Differences between species
 
 Since swordtail trails differed from the target rate but not mosquitofish and sailfin, we wanted to compare the rates among the species to see if they differed from each other. 
 
@@ -341,22 +245,7 @@ pw_df <- pw$p.value %>%
     values_to = "p_adj") %>%
   filter(!is.na(p_adj)) %>% 
   arrange(group1, group2)
-
-pw_df %>%
-  gt() %>%
-  cols_label(
-    group1 = "Species 1",
-    group2 = "Species 2",
-    p_adj  = md("*p*-value")) %>%
-  fmt_markdown(columns = "p_adj") %>%
-  fmt_number(
-    columns = p_adj,
-    decimals = 3) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c(group1, group2))) %>%
-  cols_align(align="center", everything()) %>%
-   opt_horizontal_padding(scale=2)
+pw_df
 
 
 ### Looks like mosquitofish CTmin trials are marginally (p=0.054) different than sailfin and swordtail. 
@@ -365,7 +254,7 @@ pw_df %>%
 ```
 
 
-# Summary
+# **Summary**
 
 **Trial rates compared to set rate**
 
@@ -385,49 +274,3 @@ We also compared rates among the species to determine if one species experienced
 ***
 ***
 
-# Alternative tables & figures
-
-This section is just to create combined tables and figures for publication.
-
-```{r}
-# COMBINED BY SPECIES RATE COMPARISONS
-wt  <- wt  %>% mutate(Test = "CTmax")
-wt2 <- wt2 %>% mutate(Test = "CTmin −0.3")
-wt3 <- wt3 %>% mutate(Test = "CTmin −0.1")
-
-
-wt.all <- bind_rows(wt, wt2, wt3)
-wt.all <- wt.all %>%
-  mutate(
-    result = case_when(
-      p.value < 0.001 ~ paste0("*p* < 0.001<br>(W = ", statistic,")"),
-      p.value < 0.05  ~ paste0(
-        "*p* = ", sprintf("%.3f", p.value),
-        "<br>(W = ", statistic, ")"),
-      TRUE ~ paste0(
-        "*p* = ", sprintf("%.3f", p.value),
-        "<br>(W = ", statistic, ")")))
-
-wt.wide <- wt.all %>%
-  select(Species, Test, result) %>%
-  pivot_wider(
-    names_from  = Test,
-    values_from = result)
-
-wt.wide %>%
-  gt() %>%
-  cols_label(
-    Species   = "Species") %>%
-  fmt_markdown(everything()) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = c(`CTmax`, `CTmin −0.3`),
-      rows = Species == "Swordtail")) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c(Species, CTmax, `CTmin −0.3`))) %>%
-  cols_align(align = "center", everything()) %>%
-  opt_horizontal_padding(scale = 2)
-
-```
