@@ -217,7 +217,7 @@ If using these data or scripts, please cite:
 
 McKelvey SE, Hawk C, Iverson EN, Ryan MJ, Davis AC. 2026. *Out of the frying pan and into the freezer: sex differences in thermal tolerance lacking in livebearing species.* [Journal name]. DOI: XXXXX
 
-Data repository archived at Zenodo: DOI: XXXXX
+Data repository archived at Zenodo: DOI: 10.5281/zenodo.20466137
 
 Data and scripts are distributed under the Creative Commons Attribution 4.0 International License (CC BY 4.0) unless otherwise noted.
 
