@@ -43,9 +43,9 @@ All analyses were conducted using R version 4.4.2
 
 ## Load required libraries
 
-Remove the '#' before 'install.packages' if it is the first time installing package. 
+Remove the '#' before `install.packages` if it is the first time installing package. 
 
-```{r, message=FALSE}
+```{r, warning=FALSE}
 #install.packages("curl")             #v5.2.1
 library(curl)
 
@@ -99,10 +99,9 @@ head(rawTempData)
 
 
 # OPTION 2: load from Github repository
-rawTempData <- curl("https://raw.githubusercontent.com/sophia-m0823/TestRStudio/main/Temp%20ID%20-%20Completed%20Data.csv")
-
-rawTempData <- read.csv(rawTempData, header = TRUE, sep = ",", stringsAsFactors = TRUE)
-head(rawTempData)
+#rawTempData <- curl("https://raw.githubusercontent.com/sophia-m0823/TestRStudio/main/Temp%20ID%20-%20Completed%20Data.csv")
+#rawTempData <- read.csv(rawTempData, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+#head(rawTempData)
 
 
 

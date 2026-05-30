@@ -30,7 +30,7 @@ All analyses were conducted using R version 4.4.2
 
 Remove the '#' prior to `install.packages` if it is the first time installing library. 
 
-```{r, message=FALSE}
+```{r, warning=FALSE}
 #install.packages("curl")             #v5.2.1
 library(curl)
 
@@ -60,10 +60,9 @@ head(rates)
 
 
 # OPTION 2: load from Github repository
-rates <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/rate_calc.csv")
-
-rates <- read.csv(rates, header = TRUE, sep = ",", stringsAsFactors = TRUE)
-head(rates)
+#rates <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/rate_calc.csv")
+#rates <- read.csv(rates, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+#head(rates)
 
 # One trial (Gambusia, CTmin, 7 Nov 23) only captured part of the excel sheet, so the rate calculated does not reflect the whole trial. We will remove this trial.
 

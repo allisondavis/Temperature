@@ -14,19 +14,19 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Purpose
+# **Purpose**
 
-We were interested in how the temperature rates used in our CTmax and CTmin trials (+/- 0.3°C/min) compared to those our specimens were exposed to in their original habitat. We calculated the daily temperature change rates (°C/min) for 2020-2024 in Austin. TX. We then isolated the highest positive and negative rates for each month in 2020-2024 to illustrate how our rates compare to past extreme weather events. 
+We were interested in how the temperature rates used in our CTmax and CTmin trials (+/- 0.3°C/min) compared to those our specimens were exposed to in their original habitat. We calculated the daily temperature change rates (°C/min) for 2020-2024 in Austin, TX (USA). We then isolated the highest positive and negative rates for each month in 2020-2024 to illustrate how our rates compare to past extreme weather events. 
 
-# Data
+# **Data**
 
-Temperature data were collected from Camp Maybury in Austin, TX (NOAA, National Centers for Environmental Information, https://www.ncei.noaa.gov/access/search/data-search/local-climatological-data-v2). Data reflect dry bulb temperatures recorded every hour for all months in 2020-2024. 
+Temperature data were collected from Camp Maybry in Austin, TX (USA) (NOAA, National Centers for Environmental Information, https://www.ncei.noaa.gov/access/search/data-search/local-climatological-data-v2). Data reflect dry bulb temperatures recorded every hour for all months in 2020-2024. 
 
 All analyses were conducted using R version 4.4.2 
 
 ## Load required libraries
 
-Remove the '#' in the code below if it is the first time installing library. 
+Remove the '#' prior to `install.packages` if it is the first time installing library. 
 
 ```{r}
 #install.packages("curl")             #v5.2.1
@@ -36,7 +36,7 @@ library(curl)
 library(dplyr)
 
 #install.packages("broom")            #v1.0.6
-#library(broom)
+library(broom)
 
 #install.packages("lubridate")        #v1.9.3
 library(lubridate)
@@ -55,18 +55,26 @@ library(gt)
 ## Read in data
 
 ```{r}
-
-temp <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/main/Austin_temp-data.csv")
-
-temp <- read.csv(temp, header = TRUE, sep = ",", stringsAsFactors = TRUE)
-
+#OPTION 1: download 'Austin_temp-data.csv' into working directory
+temp <- read.csv("Austin_temp-data.csv", header = TRUE, sep = ",", stringsAsFactors = TRUE)
 head(temp)
+
+
+#OPTION 2: load from Github repository
+#temp <- curl("https://raw.githubusercontent.com/allisondavis/Temperature/main/Austin_temp-data.csv")
+#temp <- read.csv(temp, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+#head(temp)
+
+#not all time points have a recorded temperature; remove incomplete rows
+temp <- temp %>%
+  drop_na() %>%
+  filter(as.character(HOUR) != "HOUR") %>% #random duplicate header
+  filter(as.character(HourlyDryBulbTemperature) != "")
 
 # Change date from month-day-year to year-month-day
 temp$DATE <- as.Date(temp$DATE, format="%m/%d/%Y")
 
 # Create separate columns for year (YYYY), month (NAME), and day (DD)
-
 temp <- temp %>%
   mutate(
     Year = format(DATE, "%Y"),  
@@ -74,26 +82,29 @@ temp <- temp %>%
     Day = format(DATE, "%d"))
 
 # Convert time to minutes
-
 temp <- temp %>%
   mutate(
-    time_obj = hms(as.character(HOUR)),
-    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60)
+    time_obj = parse_date_time(as.character(HOUR), orders = "HMS"),
+    minutes = hour(time_obj) * 60 + minute(time_obj) + second(time_obj) / 60)%>%
+  select(-time_obj) #no longer needed after calculating minutes
 
 
 ```
 
-# Analysis
+# **Analysis**
+
+## Overall rates
 
 We fit a simple linear model to determine rate of temperature change using hourly dry bulb temperatures per minute. All temperature rates are calculated as °C/minute to reflect the rate units used in our trials. 
 
 ```{r}
+#ensure time and temperature are registered as numbers
 temp <- temp %>%
-  filter(!is.na(HourlyDryBulbTemperature), !is.na(minutes), !is.na(Year), !is.na(Month), !is.na(Day)) %>%
   mutate(
     HourlyDryBulbTemperature = as.numeric(as.character(HourlyDryBulbTemperature)),
     minutes = as.numeric(as.character(minutes)))
 
+#calculate rate for every day
 slopes.all <- temp %>%
   group_by(Year, Month, Day) %>%
   summarise(
@@ -101,12 +112,14 @@ slopes.all <- temp %>%
       x <- HourlyDryBulbTemperature
       y <- minutes
       ok <- !is.na(x) & !is.na(y)
-      if(sum(ok) > 1) {
+      if(sum(ok) > 1) {         #ensures no rate is calculated if only one temp is available for that day
         coef(lm(x[ok] ~ y[ok]))[2]
       } else {
         NA_real_}},
     .groups = "drop")
+slopes.all
 
+#create wide format for easier by year viewing
 slopes.wide <- slopes.all %>%
   pivot_wider(
     id_cols = c(Month, Day),
@@ -117,29 +130,10 @@ slopes.wide <- slopes.all %>%
     Month = factor(Month, levels = month.name),
     Day = as.numeric(Day)) %>%
   arrange(Month, Day)
-
-# present as a table
-slopes.wide %>%
-  gt() %>%
-  cols_label(
-    Month = "Month",
-    Day = "Day",
-    Year_2020 = "2020",
-    Year_2021 = "2021",
-    Year_2022 = "2022",
-    Year_2023 = "2023",
-    Year_2024 = "2024") %>%
-  fmt_number(
-    columns = contains("Year_"),
-    decimals = 3) %>%
-  tab_style(
-      style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-      locations = cells_body(columns = c(Month, Day, Year_2020, Year_2021, Year_2022, Year_2023))) %>%
-  cols_align(align = "center", everything()) %>%
-  opt_horizontal_padding(scale=2)
-
+slopes.wide
 
 ```
+
 
 ## Highest temp changes
 
@@ -147,7 +141,7 @@ We isolated the highest positive and highest negative temperature rates for each
 
 
 ```{r}
-
+#isolate extreme rates per month
 slopes.extremes <- slopes.all %>%
   group_by(Year, Month) %>%
   summarise(
@@ -155,6 +149,7 @@ slopes.extremes <- slopes.all %>%
     min_slope = min(slope_deg_per_minute, na.rm = TRUE),
     .groups = "drop")
 
+#create wide data frame for easier by year viewing
 extremes.wide <- slopes.extremes %>%
   pivot_wider(
     names_from = Year,
@@ -164,6 +159,8 @@ extremes.wide <- slopes.extremes %>%
     Month = factor(Month, levels = month.name)) %>%
   arrange(Month)
 
+
+#final table for easiest viewing
 extremes.wide %>%
   gt() %>%
   tab_spanner(
@@ -214,52 +211,33 @@ extremes.wide %>%
 
 ```{r}
 
-# Averages by year 
-
+#Isolating the most extreme averages by year 
 annual_avg_rates <- slopes.all %>%
   group_by(Year) %>%
   summarise(
     avg_positive_rate = mean(slope_deg_per_minute[slope_deg_per_minute > 0], na.rm = TRUE),
-    avg_negative_rate = mean(slope_deg_per_minute[slope_deg_per_minute < 0], na.rm = TRUE)) %>%
-  gt() %>%
-  cols_label(
-    Year = "Year",
-    avg_positive_rate = "Average increase (°C/min)",
-    avg_negative_rate = "Average decrease (°C/min)") %>%
-  fmt_number(columns = c(avg_positive_rate, avg_negative_rate), decimals = 6) %>%
-  tab_style(
-    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-    locations = cells_body(columns = c(Year, avg_positive_rate))) %>%
-  cols_align(align="center", everything()) %>%
-  opt_horizontal_padding(scale = 2)
+    avg_negative_rate = mean(slope_deg_per_minute[slope_deg_per_minute < 0], na.rm = TRUE))
 
 annual_avg_rates
 
 
 
-# Overall averages 
-
-
+#Isolating the most extreme averages overall
 overall_avg_rates <- slopes.all %>%
   ungroup() %>%
   summarise(
     avg_positive_rate = mean(slope_deg_per_minute[slope_deg_per_minute > 0], na.rm = TRUE),
-    avg_negative_rate = mean(slope_deg_per_minute[slope_deg_per_minute < 0], na.rm = TRUE)) %>%
-  gt() %>%
-  cols_label(avg_positive_rate = "Average increase (°C/min)",
-    avg_negative_rate = "Average decrease (°C/min)") %>%
-  fmt_number(columns = c(avg_positive_rate, avg_negative_rate), decimals = 3) %>%
-  tab_style(
-    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
-    locations = cells_body(columns = avg_positive_rate)) %>%
-  cols_align(align="center", everything()) %>%
-  opt_horizontal_padding(scale = 2)
+    avg_negative_rate = mean(slope_deg_per_minute[slope_deg_per_minute < 0], na.rm = TRUE)) 
 
 overall_avg_rates
 
 ```
 
 
-# Summary
+# **Summary**
 
-The rate of temperature change in our trials was set to +/-0.3°C/min as this was slow enough to ensure matching internal body change and fast enough to prevent acclimation. As shown above, this rate is far higher than that experienced in Austin, TX for the past five years. This time frame includes extreme weather events such as the winter storm Uri in 2021, but rates do not mirror this extremity. While our test rates may illustrate the physiological tolerances of our fish species, trials mimicking the extreme temperature rates actually experienced may provide a more accurate image of future thermal effects. 
+The rate of temperature change in our trials was set to +/-0.3°C/min as this was slow enough to ensure matching internal body change and fast enough to prevent acclimation. As shown above, this rate is far higher than that experienced in Austin, TX (USA) over four years. This time frame includes extreme weather events such as the winter storm Uri in 2021, but rates do not mirror this extremity. While our test rates may illustrate the physiological tolerances of our fish species, trials mimicking the extreme temperature rates actually experienced may provide a more accurate image of future thermal effects. 
+
+
+***
+***
