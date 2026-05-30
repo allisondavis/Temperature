@@ -7,6 +7,7 @@ title: "README"
 
 AUTHORS: Sophia E. McKelvey, Cassidy Hawk, Eric N. Iverson, Michael J. Ryan, and Allison C. Davis
 
+
 ***
 ***
 
@@ -33,9 +34,48 @@ AUTHORS: Sophia E. McKelvey, Cassidy Hawk, Eric N. Iverson, Michael J. Ryan, and
 ***
 ***
 
-### **REPOSITORY NAVIGATION**
+### **QUICK REPOSITORY NAVIGATION**
 
-All four analysis folders are independent and do not require a sequential run order. All necessary data inputs are self-contained within their respective folders, with the exception of the *Rerun-outlier-removal.Rmd* that requires the data within the **Thermal Tolerance Analysis** folder.
+* **Austin Daily Temperature/**
+  Daily climatology analyses and associated datasets
+
+* **Trial Rates/**
+  Trial temperature rate calculations
+
+* **Thermal Tolerance Analysis/**
+  Primary statistical analyses of sex differences in thermal tolerance
+
+* **Outlier Removed Analysis/**
+  Re-analysis excluding major outliers
+
+* **Extras/**
+  Raw trial Excel files, climatology source data, and manuscript figure/table scripts
+
+***
+***
+
+### **REPRODUCING ANALYSES**
+
+1. Download and unzip all folders into the same parent directory.
+
+2. Open the R project in RStudio.
+
+3. Each analysis folder is independent and can be run separately unless otherwise noted.
+
+   * *Rerun-outlier-removal.Rmd* requires the *Temp ID - Completed Data.csv* in the **Thermal Tolerance Analysis** folder.
+
+4. To recreate manuscript figures and tables, run:
+
+   * *Austin-Daily-Temps.Rmd*
+   * *trial_rate_calc.Rmd*
+   * *Final_temperature-analysis.Rmd*
+   * *Rerun-outlier-removal.Rmd*
+
+   prior to running:
+
+   * *manuscript_figures-tables.R*
+
+5. All file paths are relative and should function provided the original folder structure is maintained.
 
 ***
 ***
@@ -73,7 +113,7 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
     
 **2. Trial Rates:** calculating the temperature rate increase and decrease achieved in our trials to compare to the desired goal rate of our automatic Arduino system (± 0.3°C/minute)
     
-  \- *trial_rate_calc.rmd* 
+  \- *trial_rate_calc.Rmd* 
   
   \- *rate_calc.csv*
 
@@ -91,11 +131,9 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
    * Note: temperature rate calculation can be found on the first sheet of the original excel file
    
 
-**3. Thermal Tolerance Analysis:** overall analysis testing for sex differences in thermal tolerance between three Poecilidd fish species
+**3. Thermal Tolerance Analysis:** overall analysis testing for sex differences in thermal tolerance between three Poeciliid fish species
     
   \- *Final_temperature-analysis.Rmd*
-  
-  \- *manuscript_figures-tables.R* (code for designing the figures/tables used in the manuscript)
   
   \- *Temp ID - Completed Data.csv*
   
@@ -114,7 +152,7 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
 | Size.mm | Standard length of individual | mm |
 
 
-**4. Outlier Removed Analysis:** a re-run of the overall analysis testing for sex differences in thermal tolerance between three Poecilidd fish species without major outliers
+**4. Outlier Removed Analysis:** a re-run of the overall analysis testing for sex differences in thermal tolerance between three Poeciliid fish species without major outliers
     
   \- *Rerun-outlier-removal.Rmd*
   
@@ -123,20 +161,22 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
 
 ***
     
-An additional folder -- **Raw Data** -- contains the raw excel files corresponding to each trial with additional trial notes, and the raw climatology data for the Austin Daily temperature analysis.
+An additional folder -- **Extras** -- contains the raw excel files corresponding to each trial with additional trial notes, the raw climatology data for the Austin Daily temperature analysis, and an R script for creating the manuscript tables/figures.
 
   \- Source for climatology data: Kantor D, Casey NW, Menne MJ, Buddenberg A (2023) Local Climatological Data (LCD), Version 2 [Subset used: Austin Camp Mabry, TX US (USW00013958), hourly dry bulb temperature, 2020–2024]. NOAA National Centers for Environmental Information. https://doi.org/10.25921/jp3d-3v19. Accessed 8 April 2025
 
    * See details at the above DOI for structure of raw climatology data
   
-  \- Structure of raw trial excel files:
+  \- Structure of raw trial excel files ('Trial data sheets'):
    
    * Sheet 1: created post-trial to calculate the temperature rate (°C/min) experienced in that trial. Time column (number of seconds since the start of temperature tracking) and Temp column (°C of tank at associated time) were copied from the 'Data In' sheet. The slope formula (=SLOPE(B/A * 60)) was calculated in a free cell.
    
-   * Data In: sheet displaying the Arduino temperature recordings. 'Time' is the time of the day (HH:MM:SS.MS), 'CH1' is the rate calculated every 40s, 'CH2' is the number of seconds since the start of temperature tracking, 'CH3' is the °C of tank at associated time. When the button on the Ardunio system was pressed to record an individual, 'CH1' rate is replaced with organism number, 'CH2' is replaced with the temperature, and 'CH3' is replaced with the number of seconds since recording start. 
+   * Data In: sheet displaying the Arduino temperature recordings. 'Time' is the time of the day (HH:MM:SS.MS), 'CH1' is the rate calculated every 40s, 'CH2' is the number of seconds since the start of temperature tracking, 'CH3' is the °C of tank at associated time. When the button on the Arduino system was pressed to record an individual, 'CH1' rate is replaced with organism number, 'CH2' is replaced with the temperature, and 'CH3' is replaced with the number of seconds since recording start. 
    
    * Data Out/Settings/Manifest: These sheets were automatically structured with the installation of the Arduino temperature system, and no alterations were made by us during our trials.
-   
+
+  \- *manuscript_figures-tables.R* (code for designing the figures/tables used in the manuscript)
+
 
 ***
 ***
@@ -163,15 +203,27 @@ All Rmd files list required packages at the beginning of the document. Below are
 | `emmeans` | v1.10.5 | *Final_temperature-analysis.Rmd* | 
 | `car` | v3.1-2 | *Final_temperature-analysis.Rmd* | 
 | `patchwork` | v1.3.2 | *Final_temperature-analysis.Rmd* | 
+| `tibble` | v3.3.1 | *manuscript_figures-tables.R* | 
+
 
 
 ***
 ***
 
 
+### **CITATION**
+
+If using these data or scripts, please cite:
+
+McKelvey SE, Hawk C, Iverson EN, Ryan MJ, Davis AC. 2026. *Out of the frying pan and into the freezer: sex differences in thermal tolerance lacking in livebearing species.* [Journal name]. DOI: XXXXX
+
+Data repository archived at Zenodo: DOI: XXXXX
+
+Data and scripts are distributed under the Creative Commons Attribution 4.0 International License (CC BY 4.0) unless otherwise noted.
 
 
-
+***
+***
 
 
 
