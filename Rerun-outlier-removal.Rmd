@@ -762,7 +762,7 @@ sigma_CTmax <- 0.6598546   # summary(O.mod1f)$sigma
 sigma_CTmin <- 1.350459   # summary(O.mod2f)$sigma
 
 # Run simulations
-MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.4°C
+MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.5°C
 MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.9°C
 
 CTmax_df <- MDD_CTmax$power_curve %>% mutate(Trait="CTmax", MDD=MDD_CTmax$MDD)
@@ -803,7 +803,7 @@ females <- O.rawTempData[O.rawTempData$Sex == "female",]
 df <- data.frame(
   type = c("CTmax", "CTmin"),
   Actual   = c(0.1, 0.2),
-  Simulated   = c(0.4, 0.9))
+  Simulated   = c(0.5, 0.9))
 
 df %>%
   gt() %>%
