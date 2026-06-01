@@ -204,6 +204,10 @@ All Rmd files list required packages at the beginning of the document. Below are
 | `car` | v3.1-2 | *Final_temperature-analysis.Rmd* | 
 | `patchwork` | v1.3.2 | *Final_temperature-analysis.Rmd* | 
 | `tibble` | v3.3.1 | *manuscript_figures-tables.R* | 
+| `ragg` | v1.5.0 | *manuscript_figures-tables.R* | 
+| `systemfonts` | v1.3.1 | *manuscript_figures-tables.R* | 
+
+
 
 
 

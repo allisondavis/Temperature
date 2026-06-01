@@ -423,7 +423,12 @@ gtsave(size.tbl, "Table10_size.rtf")
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ### FIGURES ###   NOTE: Figure 1 created in Inkscape
 # ───────────────────────────────────────────────────────────────────────────────────────────────
+### Used to imbed fonts
 
+#install.packages("ragg")
+library(ragg)
+#install.packages("systemfonts")
+library(systemfonts)
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ## Figure 2
 # ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -555,23 +560,16 @@ em.spp <- (em.max.spp + em.min.spp + plot_layout(axis_titles = "collect"))
 final.plot_em.spp<- ((em.spp/range.spp) + plot_annotation(tag_levels = "a"))
 final.plot_em.spp
 
-#Save as PNG
+#Save as tiff
 ggsave(
-  filename = "Fig2_em-species.png",
+  filename = "Fig2_em-species.tiff",
   plot = final.plot_em.spp,
+  device = ragg::agg_tiff,
   width = 6.85, 
   height = 7,          
   units = "in",
   dpi = 600)
 
-#Save as PDF 
-ggsave(
-  filename = "Fig2_em-species.pdf",
-  plot = final.plot_em.spp,
-  device = cairo_pdf,
-  width = 6.8,
-  height = 7,
-  units = "in")
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ## Figure 3
@@ -604,23 +602,15 @@ range.plot <- ggplot(dat.plot3, aes(x = Sex.plot3, y = T.tot)) +
   ylab("Temperature range (\u00B0C) \n(CTmax-CTmin)")
 range.plot
 
-#Save as PNG
+#Save as tiff
 ggsave(
-  filename = "Fig3_species-range.png",
+  filename = "Fig3_species-range.tiff",
   plot = range.plot,
+  device = ragg::agg_tiff,
   width = 3.3, 
   height = 4,          
   units = "in",
   dpi = 600)
-
-#Save as PDF 
-ggsave(
-  filename = "Fig3_species-range.pdf",
-  plot = range.plot,
-  device = cairo_pdf,
-  width = 3.3,
-  height = 4,
-  units = "in")
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ## Figure 4
@@ -742,23 +732,16 @@ em.swd <- (em.max + em.min + plot_layout(axis_titles = "collect"))
 final.plot_em.sex <- ((em.swd/range.swd) + plot_annotation(tag_levels = "a"))
 final.plot_em.sex
 
-#Save as PNG
+#Save as tiff
 ggsave(
-  filename = "Fig4_em-sex.png",
+  filename = "Fig4_em-sex.tiff",
   plot = final.plot_em.sex,
+  device = ragg::agg_tiff,
   width = 6.85, 
   height = 7,          
   units = "in",
   dpi = 600)
 
-#Save as PDF 
-ggsave(
-  filename = "Fig4_em-sex.pdf",
-  plot = final.plot_em.sex,
-  device = cairo_pdf,
-  width = 6.8,
-  height = 7,
-  units = "in")
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ## Figure 5
@@ -809,23 +792,16 @@ size.plot <- ggplot(dat.plot2, aes(x = Sex.plot2, y = Size.mm)) +
   ylab("Length (mm)")
 size.plot
 
-#Save as PNG
+#Save as tiff
 ggsave(
-  filename = "Fig5_size.png",
+  filename = "Fig5_size.tiff",
   plot = size.plot,
+  device = ragg::agg_tiff,
   width = 3.3, 
   height = 4,          
   units = "in",
   dpi = 600)
 
-#Save as PDF 
-ggsave(
-  filename = "Fig5_size.pdf",
-  plot = size.plot,
-  device = cairo_pdf,
-  width = 3.3,
-  height = 4,
-  units = "in")
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ### SUPPLEMENTARY TABLES/FIGURES ###
@@ -925,23 +901,16 @@ out.max #outliers for swordtail and mosquitofish
 out.plot <- ((out.min/out.max) + plot_annotation(tag_levels = "a") + plot_layout(guides = "collect"))
 out.plot
 
-#Save as PNG
+#Save as tiff
 ggsave(
-  filename = "FigS1_outliers.png",
+  filename = "FigS1_outliers.tiff",
   plot = out.plot,
+  device = ragg::agg_tiff,
   width = 6.85, 
   height = 7,          
   units = "in",
   dpi = 600)
 
-#Save as PDF 
-ggsave(
-  filename = "FigS1_outliers.pdf",
-  plot = out.plot,
-  device = cairo_pdf,
-  width = 6.85,
-  height = 7,
-  units = "in")
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 ## Figure S2
@@ -1012,19 +981,15 @@ mtext(group_res,  side = 3, line = 1.4, cex = 0.75, adj = 0)
 mtext(levene_res, side = 3, line = 0.0, cex = 0.75, adj = 0)
 } ### END FUNCTION
 
-#png
-png("FigS2_DHARMa_CTmax.png",
+#save as tiff
+tiff("FigS2_DHARMa_CTmax.tiff",
     width = 6.85,
     height = 4.5,
     units = "in",
-    res = 600)
-build_diagnostic_plot()
-dev.off()
+    res = 600,
+    compression = "lzw",
+    type = "cairo")
 
-#pdf
-cairo_pdf("FigS2_DHARMa_CTmax.pdf",
-    width = 6.85,
-    height = 4.5)
 build_diagnostic_plot()
 dev.off()
 
@@ -1101,20 +1066,15 @@ mtext(levene_res, side = 3, line = 0.0, cex = 0.75, adj = 0, font = 2, col = "re
 } ### END FUNCTION
 
 
-#png
-png("FigS3_DHARMa_CTmin.png",
+#save as tiff
+tiff("FigS3_DHARMa_CTmin.tiff",
     width = 6.85,
     height = 4.5,
     units = "in",
-    res = 600)
-build_diagnostic_plot()
-dev.off()
+    res = 600,
+    compression = "lzw",
+    type = "cairo")
 
-
-#pdf
-cairo_pdf("FigS3_DHARMa_CTmin.pdf",
-    width = 6.85,
-    height = 4.5)
 build_diagnostic_plot()
 dev.off()
 
