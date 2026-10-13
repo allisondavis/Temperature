@@ -127,8 +127,7 @@ trial.rates2
 
 ## Normality 
 
-**Results:** Despite normality, we will use non-parametric tests for our subsequent comparisons due to a small sample size (16 trials in CTmax and 14 trials in CTmin).
-
+**Results:** Normal, but the sample sizes are so small, so this result is tentative. Will perform a sensitivity analysis to determine if our results rely on individual trials.
 ```{r}
 #check normality
 normal <- rates %>%
@@ -167,19 +166,19 @@ Testing if CTmax trials met a rate of 0.3°C/minute and if CTmin trails met a ra
 
 ```{r}
 # All CTmax and all CTmin trials
-wilcox.test(max.rates$Rate, mu=0.3) #significant (p<0.001)
-wilcox.test(min.rates$Rate, mu=-0.3) #significant (p<0.001)
+t.test(max.rates$Rate, mu=0.3) #significant (p=0.001)
+t.test(min.rates$Rate, mu=-0.3) #significant (p<0.001)
 
 
 
 # CTmax by species
 wt <- max.rates %>%
   group_by(Species) %>%
-  summarize(statistic =wilcox.test(Rate, mu=0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=0.3)$p.value)
+  summarize(statistic =t.test(Rate, mu=0.3)$statistic,
+          p.value = t.test(Rate, mu=0.3)$p.value)
 
 wt
-### Only swordtail CTmax trial rates differed from 0.3degC/min (p=0.031).
+### Only swordtail CTmax trial rates differed from 0.3degC/min (p<0.001).
 
 
 
@@ -187,11 +186,11 @@ wt
 # CTmin by species
 wt2 <- min.rates %>%
   group_by(Species) %>%
-  summarize(statistic =wilcox.test(Rate, mu=-0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.3)$p.value) 
+  summarize(statistic =t.test(Rate, mu=-0.3)$statistic,
+          p.value = t.test(Rate, mu=-0.3)$p.value) 
 
 wt2
-### Only swordtail CTmin trial rates differed from -0.3degC/min (p=0.031).
+### all species' CTmin trial rates differed from -0.3degC/min (p<0.001 for all).
 
 ```
 
@@ -202,7 +201,7 @@ Due to the difficulties in reaching a -0.3°C/min rate, a common alternative rat
 ```{r}
 
 # All CTmin trials
-wilcox.test(min.rates$Rate, mu=-0.1) #not significant (p=0.502)
+t.test(min.rates$Rate, mu=-0.1) #not significant (p=0.364)
 
 
 
@@ -210,8 +209,8 @@ wilcox.test(min.rates$Rate, mu=-0.1) #not significant (p=0.502)
 # CTmin by species
 wt3 <- min.rates %>%
   group_by(Species) %>%
-  summarize(statistic =wilcox.test(Rate, mu=-0.1)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.1)$p.value) 
+  summarize(statistic =t.test(Rate, mu=-0.1)$statistic,
+          p.value = t.test(Rate, mu=-0.1)$p.value) 
 
 wt3
 ### No CTmin rates in any species differ from -0.1degC/min.
@@ -223,17 +222,17 @@ wt3
 
 ## Differences between species
 
-Since swordtail trails differed from the target rate but not mosquitofish and sailfin, we wanted to compare the rates among the species to see if they differed from each other. 
+Since we detected differences from the target rate, we wanted to compare the rates among the species to see if they differed from each other. 
 
 ```{r}
 
-kruskal.test(Rate~Species, data=max.rates) #not significant (p=0.295)
-kruskal.test(Rate~Species, data=min.rates) #significant (p=0.034)
+oneway.test(Rate~Species, data=max.rates) #not significant (p=0.390)
+oneway.test(Rate~Species, data=min.rates) #significant (p=0.012)
 
 
 # Since CTmin rates did differ between the species, we will perform pairwise comparisons using a Benjamini-Hochberg p adjustment.
 
-pw <- pairwise.wilcox.test(min.rates$Rate, min.rates$Species, p.adjust.method = "BH")
+pw <- pairwise.t.test(min.rates$Rate, min.rates$Species, pool.sd = FALSE, p.adjust.method = "holm")
 
 pw_df <- pw$p.value %>%
   as.data.frame() %>%
@@ -247,26 +246,93 @@ pw_df <- pw$p.value %>%
 pw_df
 
 
-### Looks like mosquitofish CTmin trials are marginally (p=0.054) different than sailfin and swordtail. 
+### Looks like mosquitofish CTmin trials are significantly different than sailfin (p=0.026) and swordtail (p=0.044). 
 
 
 ```
+
+
+## Sensitivity analysis
+
+**To target rate**
+
+```{r}
+
+loo.target <- rates %>%
+  group_by(Trial, Species) %>%
+  group_modify( ~ {
+    x <- .x$Rate
+    goal <- if(.y$Trial == "CTmax") 0.3 else -0.3
+    
+    loo.p <- sapply(seq_along(x), function (i) { t.test(x[-i], mu = goal)$p.value})
+    loo.mean <- sapply(seq_along(x), function(i) { mean(x[-i])})
+    
+    tibble(
+      n = length(x),
+      full.p = t.test(x, mu=goal)$p.value,
+      min.loo.p = min(loo.p),
+      max.loo.p = max(loo.p),
+      min.loo.mean = min(loo.mean),
+      max.loo.mean = max(loo.mean)) }) %>%
+  ungroup()
+
+loo.target
+
+```
+
+
+**Among species**
+
+```{r}
+loo.spp <- rates %>%
+  group_by(Trial) %>%
+  group_modify(~ {
+    df <- .x
+    
+    full.p <- oneway.test(df$Rate~df$Species, var.equal=FALSE)$p.value
+    
+    loo.p <- sapply(seq_len(nrow(df)), function (i) {
+      sub.rate <- df$Rate[-i]
+      sub.spp <- df$Species[-i]
+      
+      oneway.test(sub.rate~sub.spp, var.equal = FALSE)$p.value})
+    
+    tibble(
+      Trial = df$Trial[1],
+      full.p = full.p,
+      min.loo.p = min(loo.p),
+      max.loo.p = max(loo.p)) }) %>%
+  ungroup()
+
+loo.spp
+
+
+
+```
+
 
 
 # **Summary**
 
 **Trial rates compared to set rate**
 
-The goal rate for both CTmax and CTmin trials was +/- 0.3°C/min. Both CTmax and CTmin trials were significantly different than the target rate. When separated by species, only swordtail CTmax and CTmin trials were significantly different than the target rate. 
+The goal rate for both CTmax and CTmin trials was +/- 0.3°C/min. Both CTmax and CTmin trials were significantly different than the target rate. When separated by species, only swordtails differed in CTmax trials and all species differed in CTmin trials compared to the the target rate. 
 
 When using the alternate CTmin rate of -0.1°C/min, there were no significant differences for any species. 
+
+A leave-one-out sensitivity analysis indicated that the significance of differences between observed and target ramping rates was unchanged by the exclusion of any individual trial. 
 
 ***
 
 **Rates among species**
 
-We also compared rates among the species to determine if one species experienced a significantly different rate compared to the others, regardless of target rate. We did not find any differences for CTmax trials but did find a significant difference in CTmin trials. When followed up with a pairwise test (with a Benjamini-Hochberg p adjustment), we see that mosquitofish trials are marginally different than sailfin and swordtail (p=0.054).
+We also compared rates among the species to determine if one species experienced a significantly different rate compared to the others, regardless of target rate. We did not find any differences for CTmax trials but did find a significant difference in CTmin trials. When followed up with a pairwise test (with a Holm p adjustment), we see that mosquitofish trials are significantly different than sailfin and swordtail. 
 
+A leave-one-out sensitivity analysis resulted in similar conclusions for the CTmax trials, but did indicate that the CTmin results are sensitive to the exclusion of individual trials. This is likely because mosquitofish had fewer trials (3 trials) compared to sailfin (6 trials) and swordtails (5 trials).
+
+
+**Conclusions**
+As ramping rates differed from the target rate, and among the species, we will include trial run id (i.e. file.id) in our models. This will account for the differences we see here, as well as the dependence of individuals within the same trial.
 
 
 ***
