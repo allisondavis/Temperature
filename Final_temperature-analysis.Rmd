@@ -17,19 +17,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Temperature experiment
 
-**PURPOSE:** Our interest lies in whether sex-baised temperature tolerance exists in 3 livebearing fishes: sailfin mollies (*Poecilia latipinna*), Western mosquitofish (*Gambusia affinis*), and Panuco swordtails (*Xiphophorous nigrensis*). This stems from an observation of males dying when sampling during hot months but females surviving fine. 
+**PURPOSE:** Our interest lies in whether sex-baised temperature tolerance exists in 3 livebearing fishes due to dimorphism in size: sailfin mollies (*Poecilia latipinna*), Western mosquitofish (*Gambusia affinis*), and Panuco swordtails (*Xiphophorous nigrensis*). This stems from an observation of males dying when sampling during hot months but females surviving fine. 
 
 **MAIN AIMS:**
   (1) compare female and male thermal tolerance across these three species of livebearing fishes (Family: Poeciliidae)
-  (2) compare thermal tolerance across mating strategies within a single livebearing species (*X. nigrensis*)
+  (2) compare thermal tolerance across male morphs within a single livebearing species (*X. nigrensis*)
 
-**HYPOTHESIS:** Preexisting sex differences (e.g. sexually selected traits, size, behavior etc.) decrease resistance to environmental temperature change.
-
-**PREDICTIONS:**
-  - Males of fish with elaborate traits have a narrower thermal tolerance--i.e. lower thermal maximums and higher thermal minimums--compared to females of these species.
-  - Males of fish without elaborate traits will have a similar tolerance to females of the same species.
-  - Males with traits used in courtship (i.e. bright coloration and elongated fins) have a narrower thermal tolerance compared to males that use coercion (within swordtails).
-  
+**HYPOTHESIS:** Preexisting sex differences in size affect resistance to environmental temperature change.
 
 
 ***
@@ -65,7 +59,7 @@ library(tidyr)
 library(MuMIn)
 
 #install.packages("lmerTest")         #v3.1.3
-library(lmtest)
+library(lmerTest)
 
 #install.packages("sandwich")         #v3.1-1
 library(sandwich)
@@ -87,6 +81,9 @@ library(car)
 
 #install.packages("patchwork")        #v1.3.2
 library(patchwork)
+
+#install.packages("tibble")           #v3.3.1
+library(tibble)
 
 ```
 
@@ -110,17 +107,30 @@ rawTempData$Species <- factor(rawTempData$Species,
                         levels = c("X. nigrensis", "P. latipinna", "G. affinis"),
                         labels = c("Swordtail", "Sailfin", "Mosquitofish"))
 
+rawTempData <- na.omit(rawTempData)
+
+#quick view of sample size and trial numbers
+species_summary <- rawTempData %>%
+  group_by(Species) %>%
+  summarise(
+    Total_N      = n(),
+    Total_Female = sum(Sex == "female", na.rm = TRUE),
+    Total_Male   = sum(Sex == "male", na.rm = TRUE),
+    CTmax_Trials = n_distinct(file.id.max, na.rm = TRUE),
+    CTmin_Trials = n_distinct(file.id.min, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+species_summary
 
 ```
 
 
 ## Summery stats 
 
-### Trial stats
-
 ```{r}
 #remove unnecessary columns
-datTot <- rawTempData[,-c(5:7, 10)]
+datTot <- rawTempData[,-c(4:6)]
 
 #create long format df to easily summarize later
 dat.long <- datTot %>%
@@ -164,8 +174,16 @@ summ.stats.all
 ```
 
 
-### Size stats
+## Size stats
 
+When separated by sex and species, we see that there appears to be an overlap between small swordtail males and swordtail females (although they differ from large swordtail males), overlap between males and females in sailfins, and very little overlap among males and females in mosquitofish. This is confirmed through wilcoxon/kruskal-wallis tests: sailfin males and females show no significant difference in length with a small effect size (although wide CI may indicate uncertainty in magnitude and direction of any small difference), male and female mosquitofish show a significant difference in size with a large effect size indicating females are almost always larger than males, and swordtail sex categories (female, large male, small male) show a significant difference in length (as expected since male classes are separated by size), with a significant pairwise comparison among all groups and a large effect size indicating small males < females < large males. 
+
+Sexual dimorphism in length was evident for mosquitofish and among sex/morph groups in swordtails (although direction of size difference varied among morphs). Evidence for sexual dimorphism in our sailfin was inconclusive, with negligible effect sizes but a wide confidence interval.
+
+Overall collinearity is low for CTmax and CTmin trials, but separation by species shows low collinearity of sex and size for sailfins in both trial types and high collinearity of sex and size for mosquitofish in both trial types (makes sense since males and females showed little overlap in size for mosquitofish). Collinearity is high for size and sex/morph class in swordtails, which again makes sense because male classes are determined by size. Will need to interpret model results with this in mind (can't really detect a sex-only difference after accounting for similar sizes in mosquitofish and swordtail because there are no similar sizes in swordtails). 
+
+
+**Table and plot**
 
 ```{r}
 # Average lengths by species & sex
@@ -256,27 +274,56 @@ ggplot(datTot, aes(x = Sex, y = Size.mm)) +
  
 ```
 
-Simple test comparing male and female lengths
+**Length comparisons and effect size**
 
 ```{r}
+
+#separate male classes in swordtails
+size.data <- datTot %>%
+  mutate(
+    SizeGroup = case_when(
+      Species == "Swordtail" & Sex == "female" ~ "Female",
+      Species == "Swordtail" & Sex == "male" & Size.cat == "large" ~ "Large male",
+      Species == "Swordtail" & Sex == "male" & Size.cat == "small" ~ "Small male",
+      Species != "Swordtail" ~ as.character(Sex),
+      TRUE ~ NA_character_))
+
+
 #normality check by sex and species
-normal <- datTot %>%
-  group_by(Sex, Species) %>%
+normal <- size.data %>%
+  group_by(Species, SizeGroup) %>%
 summarize(statistic =shapiro.test(Size.mm)$statistic,
           p.value = shapiro.test(Size.mm)$p.value)
 
-normal #all normal except male and female swordtail
+normal #all normal except female swordtail and male mosquitofish
+
 
 #non-parametric test for size difference by species
 size.test <- datTot %>%
+  filter(Species != "Swordtail") %>%
   group_by(Species) %>%
   summarize(stat = wilcox.test(Size.mm ~ Sex)$statistic,
             p_value = wilcox.test(Size.mm~Sex)$p.value)
 
-size.test #not significant for swordtail and sailfin, but significant for mosquitofish; this may be due to the low sample size for mosquiofish compared to the other two species or the vastly different sizes of males and females in this species
+size.test #not significant for sailfin, but significant for mosquitofish
+
+sw.size.test <- size.data %>%
+  filter(Species == "Swordtail") %>%
+  summarize(stat = kruskal.test(Size.mm ~ SizeGroup)$statistic,
+            p_value = kruskal.test(Size.mm ~ SizeGroup)$p.value)
+
+sw.size.test #significant difference among sex categories; makes sense since the male classes are determined by size
+
+pw.dat <- size.data %>%
+  filter(Species == "Swordtail")
+pw.test <- pairwise.wilcox.test( pw.dat$Size.mm, pw.dat$SizeGroup, p.adjust.method = "BH")
+
+pw.test #all pairs significantly different
+
 
 #testing effect size
 eff.size.tbl <- datTot %>%
+  filter(Species != "Swordtail") %>%
   group_by(Species) %>%
   summarise({
     cd <- effsize::cliff.delta(Size.mm ~ Sex)
@@ -284,11 +331,108 @@ eff.size.tbl <- datTot %>%
       delta= cd$estimate,
     CI_low = cd$conf.int[1],
     CI_high = cd$conf.int[2])})
-eff.size.tbl
+
+eff.size.tbl #sailfins with small effect size (-0.16) but wide CI (-0.49, 0.23) so there is uncertainty in the magnitude and direction of sexual size dimorphism. mosquitofish on the other hand show a large effect size with females being larger than males (0.99, CI 0.92, 0.998).
+
+comparison <- list(
+  c("Female", "Small male"),
+  c("Female", "Large male"),
+  c("Small male", "Large male"))
+
+sw.eff.size <- bind_rows(lapply(comparison, function (g) {
+  x <- pw.dat$Size.mm[pw.dat$SizeGroup == g[1]]
+  y <- pw.dat$Size.mm[pw.dat$SizeGroup == g[2]]
+  cd <- effsize::cliff.delta(x,y)
+  
+  tibble(
+    group1 = g[1],
+    group2 = g[2],
+    delta = unname(cd$estimate),
+    CI_low = cd$conf.int[1],
+    CI_high = cd$conf.int[2])  }))
+
+sw.eff.size #large size effects for all three combos; size ranking as follows: small males -> females -> large males
 
 
-### minimal effect size for swordtail and sailfin, but large effect size for mosquitofish. This is understandable seeing as females are often MUCH larger than males. However, size still had very little effect on temperature tolerance despite a size difference between sexes in this species. 
 ```
+
+**Collinearity** 
+
+```{r}
+library(lme4)
+### CTmax ###
+model1 <- lmer(CTmax.C ~ Species + Sex + Size.mm + (1|file.id.max), data = datTot, REML = FALSE)
+
+vif(model1) #shows low levels of collinearity for all effects
+
+vif.spp <- datTot %>%
+  filter(Species != "Swordtail") %>% #since there are distinct size classes here
+  group_by(Species) %>%
+  group_modify( ~ {
+    model <- lmer(CTmax.C ~ Sex + Size.mm + (1|file.id.max), data = .x, REML = FALSE)
+    v <- vif(model)
+    
+    tibble(
+      Predictor = names(v),
+      VIF = as.numeric(v), 
+      Singular = isSingular(model)) }) %>%
+  ungroup()
+
+vif.spp #low collinearity for sailfins, but high for mosquitofish; makes sense since we saw large sexual size dimorphism in this species
+
+vif.sw <- size.data %>%
+  filter(Species == "Swordtail") %>% 
+  group_modify( ~ {
+    model <- lmer(CTmax.C ~ SizeGroup + Size.mm + (1|file.id.max), data = .x, REML = FALSE)
+    v <- vif(model)
+    
+    tibble::rownames_to_column(
+      as.data.frame(v),
+      var = "Predictor") %>%
+      mutate(Singular = isSingular(model)) }) %>%
+  ungroup()
+vif.sw #adjusted GVIF for size group and size.mm indicate strong collinearity among size and sex/morph class; makese sense since the males are separated by size, but will need to keep this in mind when interpreting results. singular fit shows no variation in trial runs
+
+
+### CTmin ###
+model1 <- lmer(CTmin.C ~ Species + Sex + Size.mm + (1|file.id.min), data = datTot, REML = FALSE)
+
+vif(model1) #shows low levels of collinearity for all effects
+
+vif.spp <- datTot %>%
+  filter(Species != "Swordtail") %>% #since there are distinct size classes here
+  group_by(Species) %>%
+  group_modify( ~ {
+    model <- lmer(CTmin.C ~ Sex + Size.mm + (1|file.id.min), data = .x, REML = FALSE)
+    v <- vif(model)
+    
+    tibble(
+      Predictor = names(v),
+      VIF = as.numeric(v), 
+      Singular = isSingular(model)) }) %>%
+  ungroup()
+
+vif.spp #low collinearity for sailfins, but high for mosquitofish; makes sense since we saw large sexual size dimorphism in this species
+
+vif.sw <- size.data %>%
+  filter(Species == "Swordtail") %>% 
+  group_modify( ~ {
+    model <- lmer(CTmin.C ~ SizeGroup + Size.mm + (1|file.id.min), data = .x, REML = FALSE)
+    v <- vif(model)
+    
+    tibble::rownames_to_column(
+      as.data.frame(v),
+      var = "Predictor") %>%
+      mutate(Singular = isSingular(model)) }) %>%
+  ungroup()
+vif.sw #adjusted GVIF for size group and size.mm indicate strong collinearity among size and sex/morph class; makese sense since the males are separated by size, but will need to keep this in mind when interpreting results. 
+
+#all CTmin trials without singular fit, file.id required for models
+
+
+```
+
+
 
 # **Analysis**
 
@@ -296,25 +440,32 @@ eff.size.tbl
 
 ### Model Selection
 
-Here, we will run linear models with CTmax as our dependent variable, and sex, species (plus their interaction), and size as our independent variables. We will select our final model based on ΔAIC scores from the 'MuMln' package.
+Here, we will run linear mixed effects models with CTmax as our dependent variable, and sex, species, and size (plus their interaction) as our independent variables. We will select our final model based on ΔAIC scores from the 'MuMln' package.
 
-**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.498). However, the model with both species and sex has a delta value less than 2 (ΔAICc=0.7; weight=0.350), so we will also keep this model for the purpose of illustrating the limited effect of sex. 
+**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.511). Adding size (mod1b) or sex (mod1c) or both (mod1d) did not improve fit, but as they are characters of interest will will still examine the coefficients for comparison.
 
 ```{r}
 # All models
-mod1 <- lm(CTmax.C ~ Species*Sex + Size.mm, data = datTot) #full model with interaction effect
-mod1b <- lm(CTmax.C ~ Species + Sex + Size.mm, data = datTot) #full model, no interaction
-mod1c <- lm(CTmax.C ~ Species + Sex, data = datTot) #no size effect
-mod1d <- lm(CTmax.C ~ Sex + Size.mm, data = datTot) #no species effect
-mod1e <- lm(CTmax.C ~ Sex, data = datTot) #sex only effect
-mod1f <- lm(CTmax.C ~ Species, data = datTot) #species only effect
-mod1g <- lm(CTmax.C ~ Size.mm, data = datTot) #size only effect
+mod1 <- lmer(CTmax.C ~ Species + (1|file.id.max), data = datTot, REML = FALSE) 
+      #does CTmax differ among spp?
+mod1b <- lmer(CTmax.C ~ Species + Size.mm + (1|file.id.max), data = datTot, REML = FALSE) 
+      #is body size associated with CTmax after accounting for species?
+mod1c <- lmer(CTmax.C ~ Species + Sex + (1|file.id.max), data = datTot, REML = FALSE) 
+      #is sex associated with CTmax after accounting for species?
+mod1d <- lmer(CTmax.C ~ Species + Sex + Size.mm + (1|file.id.max), data = datTot, REML = FALSE)       #are sex and size independently associated with CTmax? *Remember collinearity
+mod1e <- lmer(CTmax.C ~ Species + Sex * Size.mm + (1|file.id.max), data = datTot, REML = FALSE)
+      #does the relationship between size and CTmax differ between males and females?
+mod1f <- lmer(CTmax.C ~ Species * Sex + Size.mm + (1|file.id.max), data = datTot, REML = FALSE)
+      #do sex-associated differences in CTmax vary among species, after accounting for size?
+mod1g <- lmer(CTmax.C ~ Species *Size.mm + Sex + (1|file.id.max), data = datTot, REML = FALSE) 
+      #does body size and CTmax vary among species after accounting for sex?
 
 # Model selection
 model.sel(mod1, mod1b, mod1c, mod1d, mod1e, mod1f, mod1g)
 
-  ### Mod1f (species only effect) is the most supported model (ΔAICc=0; weight=0.498)
-  ### Mod1c (species and sex, no size) also has a ΔAICc < 2 (ΔAICc=0.7; weight=0.350), so will keep to illustrate the limited effects of sex, but Mod1f is best.
+  ### Mod1 (species only effect) is the most supported model (ΔAICc=0; weight=0.511)
+  ### Adding size (mod1b) or sex (mod1c) or both (mod1d) did not improve fit, but as they are characters of interest will will still examine the coefficients for comparison
+  ### Interactive effects (mod1e-g) showed very weak support, so allowing sex or size to vary did not improve model fit enough to justify the additional parameters; also possible that it is unstable to add additional parameters given our low sample size
 
 ```
 
@@ -322,31 +473,54 @@ model.sel(mod1, mod1b, mod1c, mod1d, mod1e, mod1f, mod1g)
 
 Here, we will check if the model residuals are normal and homoscedastic using the 'DHARMa' package.
 
-**Results:** The species only model (most supported) showed significant outlier deviation (p=0.026). This is likely from the truncated nature of temperature data, making tail estimations less accurate. The sex and species model showed a failed KS test (p=0.048), which supports the decision for the species only model. Adding sex increases estimation noise without improving fit. We will then use robust standard errors to make a conservative assessment of factor significance. 
+**Results:** All models showed no outlier deviation or heteroscedasticity. 
 
 ```{r}
 
 # Species only model
-simulationOutput <- simulateResiduals(mod1f)
+simulationOutput <- simulateResiduals(mod1, n = 1000)
 
 plot(simulationOutput)
 
 plotResiduals(simulationOutput)
 plotResiduals(simulationOutput, form = rawTempData$Species)
 
-  ### Significant outlier deviation (p=0.26); likely due to truncated nature of temperature data
+  ### All good!
 
 
-# Species and sex model
-simulationOutput2 <- simulateResiduals(mod1c)
+# Species and size model
+simulationOutput2 <- simulateResiduals(mod1b, n = 1000)
 
 plot(simulationOutput2)
 
 plotResiduals(simulationOutput2)
 plotResiduals(simulationOutput2, form = rawTempData$Species)
-plotResiduals(simulationOutput2, form = rawTempData$Sex)
+plotResiduals(simulationOutput2, form = rawTempData$Size.mm)
 
-  ### KS failure (p=0.48); not unexpected, given that it was a higher delta value; confirms the sex effect increases estimation noise without improving fit.
+  ### All good!
+
+# Species and sex model
+simulationOutput3 <- simulateResiduals(mod1c, n = 1000)
+
+plot(simulationOutput3)
+
+plotResiduals(simulationOutput3)
+plotResiduals(simulationOutput3, form = rawTempData$Species)
+plotResiduals(simulationOutput3, form = rawTempData$Sex)
+
+  ### All good!
+
+# Species and sex and size model
+simulationOutput4 <- simulateResiduals(mod1d, n = 1000)
+
+plot(simulationOutput4)
+
+plotResiduals(simulationOutput4)
+plotResiduals(simulationOutput4, form = rawTempData$Species)
+plotResiduals(simulationOutput4, form = rawTempData$Sex)
+plotResiduals(simulationOutput4, form = rawTempData$Size.mm)
+
+  ### All good!
 
 
 ```
@@ -354,28 +528,24 @@ plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
 ### Model Summary
 
-Again, we will use robust standard errors to assess factor significance, as both models exhibited some deviation from normal. We will determine the overall effect of species (Anova from 'car' package), and calculate the estimated marginal means and a pairwise species comparison (emmeans package) all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors (coeftest from 'lmtest' package) to illustrate the effect of sex on the model. 
+We will determine the overall effect of species (anova from 'lmerTest' package; using Satterthwaite approximation due to small sample size of random effect), and calculate the estimated marginal means and a pairwise species comparison (emmeans package). Model summaries will provide us with the effect of sex and size on the model. 
 
 **Results:** There is a significant effect of species for CTmax (P<0.001). Pairwise comparisons show swordtails to be significantly different to sailfin (p<0.001) and mosquitofish (p<0.001), but sailfin and mosquitofish do not significantly differ (p=0.061). Sex was confirmed as not a significant predictor in the model (estimate=0.284, SE=-.243, p=0.247).
 
 ```{r}
 # SPECIES ONLY MODEL
-
- ## Robust variance-covariance matrix
-robVCV.sp <- vcovHC(mod1f, type= "HC3")
-
  ## Overall species effect
-Anova(mod1f, vcov = robVCV.sp, type="II")
+anova(mod1, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
  ## EMM & Pairwise comparisons
 
-PW.sp.max <- emmeans(mod1f, "Species", vcov. = robVCV.sp)
+PW.sp.max <- emmeans(mod1, "Species", lmer.df = "satterthwaite")
 summary(PW.sp.max) #EMM
-pairs(PW.sp.max) #Pairwise results
+pairs(PW.sp.max, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
-PW.df <- as.data.frame(PW.sp.max)
+PW.df <- as.data.frame(confint(PW.sp.max))
 
 ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
@@ -385,10 +555,34 @@ ggplot(PW.df, aes(x=Species, y=emmean)) +
   xlab("\n Species") +
   theme_classic()
 
+# SPECIES & SIZE MODEL
+
+summary(mod1b)
+
 # SPECIES & SEX MODEL
 
-coeftest(mod1c, vcov. = vcovHC(mod1c, type= "HC3"))
+summary(mod1c)
 
+# SPECIES, SIZE & SEX MODEL
+
+summary(mod1d)
+
+# SUMMARY TABLE
+coef.table <- function(model, label, trait) {
+  as.data.frame(coef(summary(model))) %>%
+    rownames_to_column("Predictor") %>%
+    filter(grepl(trait, Predictor)) %>%
+    mutate(Model = label) %>%
+    mutate(
+      CI_low = Estimate - qt(0.975, df) * `Std. Error`,
+      CI_high = Estimate + qt(0.975, df) * `Std. Error`) }
+
+ctmax.results <- bind_rows(
+  coef.table(mod1b, "B", "Size.mm"),
+  coef.table(mod1c, "C", "^Sex"),
+  coef.table(mod1d, "D", "Size.mm|^Sex"))
+  
+ctmax.results
 
 ```
 
@@ -396,25 +590,31 @@ coeftest(mod1c, vcov. = vcovHC(mod1c, type= "HC3"))
 
 ### Model Selection
 
-We will repeat the above analysis with CTmin as our dependent variable, and sex, species (plus their interaction), and size as our independent variables. Then select our final model based on ΔAIC scores.
+We will repeat the above analysis with CTmin as our dependent variable, and sex, species, and size (plus their interaction) as our independent variables. Then select our final model based on ΔAIC scores.
 
-**Results:** The model containing just species as a dependent variable was the most supported in our model selection (ΔAICc=0.0; weight=0.616). However, the model with both species and sex has a delta value less than 2 (ΔAICc=1.73; weight=0.259), so we will also keep this model for the purpose of illustrating the limited effect of sex. 
+**Results:** The model containing species, sex, and size as dependent variables was the most supported in our model selection (ΔAICc=0.0; weight=0.267), but models containing just species + size (mod2b), species + sex (mod2c) or species only (mod2) had similar ΔAICc and weight values, meaning all 4 models are a competitive fit. 
 
 ```{r}
 # All models
-mod2 <- lm(CTmin.C ~ Species*Sex + Size.mm, data = datTot) #full model with interaction effect
-mod2b <- lm(CTmin.C ~ Species + Sex + Size.mm, data = datTot) #full model, no interaction
-mod2c <- lm(CTmin.C ~ Species + Sex, data = datTot) #no size effect
-mod2d <- lm(CTmin.C ~ Sex + Size.mm, data = datTot) #no species effect
-mod2e <- lm(CTmin.C ~ Sex, data = datTot) #sex only effect
-mod2f <- lm(CTmin.C ~ Species, data = datTot) #species only effect
-mod2g <- lm(CTmin.C ~ Size.mm, data = datTot) #size only effect
+mod2 <- lmer(CTmin.C ~ Species + (1|file.id.min), data = datTot, REML = FALSE) 
+      #does CTmin differ among spp?
+mod2b <- lmer(CTmin.C ~ Species + Size.mm + (1|file.id.min), data = datTot, REML = FALSE) 
+      #is body size associated with CTmin after accounting for species?
+mod2c <- lmer(CTmin.C ~ Species + Sex + (1|file.id.min), data = datTot, REML = FALSE) 
+      #is sex associated with CTmin after accounting for species?
+mod2d <- lmer(CTmin.C ~ Species + Sex + Size.mm + (1|file.id.min), data = datTot, REML = FALSE)       #are sex and size independently associated with CTmin? *Remember collinearity
+mod2e <- lmer(CTmin.C ~ Species + Sex * Size.mm + (1|file.id.min), data = datTot, REML = FALSE)
+      #does the relationship between size and CTmin differ between males and females?
+mod2f <- lmer(CTmin.C ~ Species * Sex + Size.mm + (1|file.id.min), data = datTot, REML = FALSE)
+      #do sex-associated differences in CTmin vary among species, after accounting for size?
+mod2g <- lmer(CTmin.C ~ Species *Size.mm + Sex + (1|file.id.min), data = datTot, REML = FALSE)
+      #does body size and CTmin vary among species after accounting for sex?
 
 # Model selection
 model.sel(mod2, mod2b, mod2c, mod2d, mod2e, mod2f, mod2g)
 
-  ### Mod2f (species only effect) is the most supported model (ΔAICc=0; weight=0.616)
-  ### Mod1c (species and sex, no size) also has a ΔAICc < 2 (ΔAICc=1.73; weight=0.259), and we'll again keep this model just to illustrate the effects of sex.
+  ### Mod2d (species + sex + size) is the most supported model (ΔAICc=0; weight=0.267), although mod2c (species + sex) and mod2b (species + size) are also well supported (mod2c: ΔAICc=018; weight=0.244; mod2b: ΔAICc=0.57; weight=0.201). Mod2 (species only) also shows moderate support (ΔAICc=1.31; weight=0.139).
+  ### Interactive effects (mod1e-g) showed very weak support, so allowing sex or size to vary did not improve model fit enough to justify the additional parameters; also possible that it is unstable to add additional parameters given our low sample size
 
 ```
 
@@ -427,28 +627,49 @@ Here, we will check if the model residuals are normal and homoscedastic.
 ```{r}
 
 # Species only model
-simulationOutput <- simulateResiduals(mod2f)
+simulationOutput <- simulateResiduals(mod2, n = 1000)
 
 plot(simulationOutput)
 
 plotResiduals(simulationOutput)
 plotResiduals(simulationOutput, form = rawTempData$Species)
 
-  ### Failed Levene's test driven by species-level variation differences
+  ### All good!
 
 
-# Species and sex model
-simulationOutput2 <- simulateResiduals(mod2c)
+# Species and size model
+simulationOutput2 <- simulateResiduals(mod2b, n = 1000)
 
 plot(simulationOutput2)
 
 plotResiduals(simulationOutput2)
 plotResiduals(simulationOutput2, form = rawTempData$Species)
-plotResiduals(simulationOutput2, form = rawTempData$Sex)
+plotResiduals(simulationOutput2, form = rawTempData$Size.mm)
 
-  ### Failed Levene's test driven by species-level variation differences
+  ### All good!
 
+# Species and sex model
+simulationOutput3 <- simulateResiduals(mod2c, n = 1000)
 
+plot(simulationOutput3)
+
+plotResiduals(simulationOutput3)
+plotResiduals(simulationOutput3, form = rawTempData$Species)
+plotResiduals(simulationOutput3, form = rawTempData$Sex)
+
+  ### All good!
+
+# Species and sex and size model
+simulationOutput4 <- simulateResiduals(mod2d, n = 1000)
+
+plot(simulationOutput4)
+
+plotResiduals(simulationOutput4)
+plotResiduals(simulationOutput4, form = rawTempData$Species)
+plotResiduals(simulationOutput4, form = rawTempData$Sex)
+plotResiduals(simulationOutput4, form = rawTempData$Size.mm)
+
+  ### Quantitle deviation detected for lower quantile, but combined adjusted quantiles test ns
 ```
 
 
@@ -456,80 +677,88 @@ plotResiduals(simulationOutput2, form = rawTempData$Sex)
 
 Again, we will use robust standard errors to assess factor significance, as this method can tolerate the heteroscedasticity we detected in our model residuals. We will determine the overall effect of species, calculate the estimated marginal means and run a pairwise species comparison all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors to illustrate the effect of sex on the model. 
 
-**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show all species as significantly different, although the trend was much stronger with swordtail comparisons (swordtail-sailfin: p<0.001; swordtail-mosquitofish:p<0.001; sailfin-mosquitofish: p=0.004). Sex was again confirmed as not a significant predictor in the model (estimate=0.230, SE=0.243, p=0.348).
+**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show swordtails as significantly different from sailfin and mosquitofish, and the difference between sailfin and mosquitofish was marginal (0.050). Despite the additions of sex and size improving model fit, neither were statistically significant.
 
 ```{r}
 # SPECIES ONLY MODEL
-
- ## Robust variance-covariance matrix
-robVCV.sp <- vcovHC(mod2f, type= "HC3")
-
  ## Overall species effect
-Anova(mod2f, vcov = robVCV.sp, type="II")
+anova(mod2, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
  ## EMM & Pairwise comparisons
 
-PW.sp.min <- emmeans(mod2f, "Species", vcov. = robVCV.sp)
-summary(PW.sp.min) #EMM
-pairs(PW.sp.min) #Pairwise results
+PW.sp.max <- emmeans(mod2, "Species", lmer.df = "satterthwaite")
+summary(PW.sp.max) #EMM
+pairs(PW.sp.max, adjust = "holm") #Pairwise results
       
-  ## Plotting EMM
+ ## Plotting EMM
 
-PW.df <- as.data.frame(PW.sp.min)
+PW.df <- as.data.frame(confint(PW.sp.max))
 
 ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 8)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
   ylab("Predicted mean temperature (°C) \n") +
   xlab("\n Species") +
-  theme_classic() 
+  theme_classic()
+
+# SPECIES & SIZE MODEL
+
+summary(mod2b)
+anova(mod2b, type = 2, ddf = "Satterthwaite")
+
 
 # SPECIES & SEX MODEL
 
-coeftest(mod2c, vcov. = vcovHC(mod1c, type= "HC3"))
+summary(mod2c)
+anova(mod2c, type = 2, ddf = "Satterthwaite")
 
+
+# SPECIES, SIZE & SEX MODEL
+
+summary(mod2d)
+anova(mod2d, type = 2, ddf = "Satterthwaite")
+
+# SUMMARY TABLE
+
+ctmin.results <- bind_rows(
+  coef.table(mod2b, "B", "Size.mm"),
+  coef.table(mod2c, "C", "^Sex"),
+  coef.table(mod2d, "D", "Size.mm|^Sex"))
+  
+ctmin.results
 
 ```
 
-## **Across mating strategies**
+## **Across male morphs**
 
-The second aim in our analysis is to compare thermal tolerance across male mating strategies within one species (Panuco swordtail). We used swordtail males of two categories: large, courting males (standard length >32mm) or small, coercive males (standard length <25mm with clearly defined gonopodium). If preexisting sex-based differences (e.g. bright coloration, elongated fins, courtship) affect thermal tolerance, we predict large males to have a lower thermal tolerance than small males, and small males to mirror the thermal tolerance of females.  
+Males in the Panuco swordtail have three morphs determined by copy number at mc4r locus: large males (SL >= 32mm), intermediate males (26 < SL < 36), and small males (SL <= 25mm with defined gonopodium). The morphs have greater variation in size than the variation between large males and females. We compare thermal tolerance across male morphs (only large and small, no intermediate in our study) and females. 
 
 ### Models
 
-Since male mating strategy is associated with size, adding size to our models would be redundant. Just to confirm, we will run a correlation test (kruskal-wallis of sex~size) and calculate colinearity (variance inflation factor, GVIF). To do this, we created a new sex column with three factors: female, male.large, and male.small. That way we won't have to worry about one of our groups (ie females) not having a factor for mating strategy. 
+For both CTmax and CTmin, a model of temperature ~ sex category was the most supported, although adding size was also competative for CTmax. 
 
 ```{r}
-# Create swordtail only data set
-swordtail_1 <- datTot[datTot$Species =="Swordtail",]
-
-# Create a new sex column based off size categories
-swordtail_1 <- swordtail_1 %>%
-  mutate(sex.2 = dplyr::recode(Size.cat,
-                        "large" = "male.courtship",
-                        "small" = "male.coercion",
-                        "reg"   = "female"),
-         sex.2 = factor(sex.2, levels = c( "female", "male.courtship", "male.coercion")))
-
-# Correlation test
-kruskal.test(Size.mm ~ sex.2, data = swordtail_1) #significant (p<0.001)
-
-# Collinearity test
-mod_test <- lm(CTmax.C ~ sex.2 + Size.mm, data = swordtail_1)
-vif(mod_test) #moderate collinearity for size.mm (3.0); low collinearity for sex.2 (1.73)
+#swordtail only data frame; will use dat.plot df as it has male morphs already 
+swordtail.df <- dat.plot %>%
+  filter(Species == "Swordtail")
 
 
-### CONCLUSION: adding size would be redundant
-```
+### CTmax ###
+SWmod1 <- lmer(CTmax.C ~ Sex.plot + (1|file.id.max), data = swordtail.df, REML = FALSE)
+SWmod2 <- lmer(CTmax.C ~ Sex.plot + Size.mm + (1|file.id.max), data = swordtail.df, REML = FALSE)
+SWmod3 <- lmer(CTmax.C ~ Sex.plot * Size.mm + (1|file.id.max), data = swordtail.df, REML = FALSE)
 
-Since there is only one model (temp ~ sex2), there is no need for model selection. Instead, we will run this model for both temperature categories, check residuals and summarize the models with robust standard errors if necessary.
+model.sel(SWmod1, SWmod2, SWmod3)
+    ### SWmod1 with best support (ΔAICc=0; weight=0.71) although adding size (SWmod2) is also competative (ΔAICc=1.86; weight=0.28). 
 
+### CTmin ###
+SWmod4 <- lmer(CTmin.C ~ Sex.plot + (1|file.id.min), data = swordtail.df, REML = FALSE)
+SWmod5 <- lmer(CTmin.C ~ Sex.plot + Size.mm + (1|file.id.min), data = swordtail.df, REML = FALSE)
+SWmod6 <- lmer(CTmin.C ~ Sex.plot * Size.mm + (1|file.id.min), data = swordtail.df, REML = FALSE)
 
-```{r}
-SWmod1 <- lm(CTmax.C ~ sex.2, data = swordtail_1)
-SWmod2 <- lm(CTmin.C ~ sex.2, data = swordtail_1)
-
+model.sel(SWmod4, SWmod5, SWmod6)
+    ### SWmod4 with best support (ΔAICc=0; weight=0.748); adding size or an interaction did not improve fit nor are competative models (ΔAICc >2).
 ```
 
 
@@ -537,100 +766,106 @@ SWmod2 <- lm(CTmin.C ~ sex.2, data = swordtail_1)
 
 Here, we will check if the model residuals are normal and homoscedastic using the 'DHARMa' package.
 
-**Results:** Residuals for both models (CTmax, CTmin) pass.  
+**Results:** Residuals for all 3 models (SWmod1-mod3) pass.  
 
 ```{r}
 
 # CTmax
-simulationOutput <- simulateResiduals(SWmod1)
+simulationOutput <- simulateResiduals(SWmod1, n = 1000)
 
 plot(simulationOutput)
 
 plotResiduals(simulationOutput)
-plotResiduals(simulationOutput, form = swordtail_1$sex.2)
+plotResiduals(simulationOutput, form = swordtail.df$Sex.plot)
+
+  ### All good!
+
+
+simulationOutput <- simulateResiduals(SWmod2, n = 1000)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput)
+plotResiduals(simulationOutput, form = swordtail.df$Sex.plot)
 
   ### All good!
 
 # CTmin
-simulationOutput <- simulateResiduals(SWmod2)
+simulationOutput <- simulateResiduals(SWmod4, n = 1000)
 
 plot(simulationOutput)
 
 plotResiduals(simulationOutput)
-plotResiduals(simulationOutput, form = swordtail_1$sex.2)
+plotResiduals(simulationOutput, form = swordtail.df$Sex.plot) #threw a quantile deviation, but not sure if this is real or side effect of small samples
+cat_test <- plotResiduals(simulationOutput, form = swordtail.df$Sex.plot)
+cat_test$uniformity$p.value.cor # all = 1
+cat_test$homogeneity #p = 0.836
 
   ### All good!
-
 
 ```
 
 
 ### Model Summary
 
-All models pass residual checks, so we will determine the overall effect of mating strategy, calculate the estimated marginal means, and run a pairwise strategy comparison without an additional variance-covariance specification.
 
-**Results:** Mating strategy did not significantly affect thermal tolerance within swordtails across both temperature categories (CTmax: p=0.647; CTmin: p=0.378). This result is mirrored in all pairwise comparisons. 
+**Results:** Sex category (large male, small male, female) did not significantly affect thermal tolerance within swordtails across both temperature categories (CTmax: p=0.617; CTmin: p=0.275). This result is mirrored in all pairwise comparisons. 
 
 ```{r}
 
-# CTmax
-
- ## Overall strategy effect
-Anova(SWmod1, type="II")
+# SEX CATEGORY ONLY MODEL
+ ## Overall sex category effect
+anova(SWmod1, type = 2, ddf = "Satterthwaite") #not significant (p=0.617)
 
  ## EMM & Pairwise comparisons
 
-PW.sex.max <- emmeans(SWmod1, "sex.2")
-summary(PW.sex.max) #EMM
-pairs(PW.sex.max) #Pairwise results
+PW.sw.max <- emmeans(SWmod1, "Sex.plot", lmer.df = "satterthwaite")
+summary(PW.sw.max) #EMM
+pairs(PW.sw.max, adjust = "holm") #Pairwise results
       
-  ## Plotting EMM
+ ## Plotting EMM
 
-PW.df <- as.data.frame(PW.sex.max) 
+PW.df.sw <- as.data.frame(confint(PW.sw.max))
 
-
-ggplot(PW.df, aes(x=sex.2, y=emmean)) +
+ggplot(PW.df.sw, aes(x=Sex.plot, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
   ylab("Predicted mean temperature (°C) \n") +
-  xlab("\n Mating strategy") +
-  ggtitle("\n CTmax") +
-  theme_classic() 
-  
-  ## Coefficients
-summary(SWmod1)
+  xlab("\n Sex categories") +
+  theme_classic()
+
+# SEX CATEGORY & SIZE MODEL
+
+summary(SWmod2)
 
 
 
 
 # CTmin
 
-## Overall strategy effect
-Anova(SWmod2, type="II")
+# SEX CATEGORY ONLY MODEL
+ ## Overall sex category effect
+anova(SWmod4, type = 2, ddf = "Satterthwaite") #not significant (p=0.275)
 
  ## EMM & Pairwise comparisons
 
-PW.sex.min <- emmeans(SWmod2, "sex.2")
-summary(PW.sex.min) #EMM
-pairs(PW.sex.min) #Pairwise results
+PW.sw.min <- emmeans(SWmod4, "Sex.plot", lmer.df = "satterthwaite")
+summary(PW.sw.min) #EMM
+pairs(PW.sw.min, adjust = "holm") #Pairwise results
       
-  ## Plotting EMM
+ ## Plotting EMM
 
-PW.df <- as.data.frame(PW.sex.min)
+PW.df.sw2 <- as.data.frame(confint(PW.sw.min))
 
-ggplot(PW.df, aes(x=sex.2, y=emmean)) +
+ggplot(PW.df.sw2, aes(x=Sex.plot, y=emmean)) +
   geom_point(size=2) +
   geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
   scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
   ylab("Predicted mean temperature (°C) \n") +
-  xlab("\n Mating strategy") +
-  ggtitle("CTmin") +
-  theme_classic() 
+  xlab("\n Sex categories") +
+  theme_classic()
 
-  
-  ## Coefficients
-summary(SWmod2)
 
 
 ```
@@ -641,7 +876,7 @@ summary(SWmod2)
 
 Based on the power of our current study, we will calculate the average temperature difference needed to detect a significant sex effect. 
 
-**Results:** The actual temperature difference between males and females in each category was much lower than the simulated temperature differences needed to detect a sex effect given the power of our study (Actual: CTmax=0.3, CTmin=0.2; Simulated: CTmax=0.7, CTmin=0.9). While we found no statistically significant sex effect in any temperature category, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
+**Results:** The actual temperature difference between males and females in each category was much lower than the simulated temperature differences needed to detect a sex effect given the power of our study (Actual: CTmax=0.2, CTmin=0.1; Simulated: CTmax=0.6, CTmin=0.3). While we found no statistically significant sex effect in any temperature category, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
 
 ***NOTE:*** This will increase loading time; to reduce loading time, remove/comment out the following section and keep the comparisons table to view results.
 
@@ -706,16 +941,16 @@ simulate_MDD <- function(nsim=1000, species, nM, nF, sigma, alpha=0.05,
 # ==========================
 
 species <- c("sailfin","mosquitofish","swordtail")
-nM <- c(16, 9, 15) #number of males for each species
-nF <- c(16, 8, 15) #number of females for each species
+nM <- c(20, 13, 15) #number of males for each species
+nF <- c(20, 12, 15) #number of females for each species
 
 # Sigma values are the residual SD from the above linear models
-sigma_CTmax <- 1.029198   # summary(mod1f)$sigma
-sigma_CTmin <- 1.409949   # summary(mod2f)$sigma
+sigma_CTmax <- 0.9861918   # summary(mod1f)$sigma
+sigma_CTmin <- 0.5801441   # summary(mod2f)$sigma
 
 # Run simulations
-MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.7°C
-MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.9°C
+MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.6°C
+MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.3°C
 
 CTmax_df <- MDD_CTmax$power_curve %>% mutate(Trait="CTmax", MDD=MDD_CTmax$MDD)
 CTmin_df <- MDD_CTmin$power_curve %>% mutate(Trait="CTmin", MDD=MDD_CTmin$MDD)
@@ -749,14 +984,14 @@ males <- rawTempData[rawTempData$Sex == "male",]
 females <- rawTempData[rawTempData$Sex == "female",]
 
 #find average differences in real data
-(mean(males$CTmax.C))- (mean(females$CTmax.C)) #0.297°C
-(mean(males$CTmin.C))- (mean(females$CTmin.C)) #0.163°C
+(mean(males$CTmax.C))- (mean(females$CTmax.C)) #0.160°C
+(mean(males$CTmin.C))- (mean(females$CTmin.C)) #0.135°C
 
 #final table
 df <- data.frame(
   type = c("CTmax", "CTmin"),
-  Actual   = c(0.3, 0.2),
-  Simulated   = c(0.7, 0.9))
+  Actual   = c(0.2, 0.1),
+  Simulated   = c(0.6, 0.3))
 df
 
 ```
@@ -764,11 +999,11 @@ df
 
 # **Summary**
 
-We were interested in whether sex played a role in thermal tolerance due to preexisting sex-based differences, such as sexually selected traits, size, or behavior. We tested for sex-biased tolerance in CTmax and CTmin trials in three livebearing species: sailfin mollies (*P. latipinna*), Western mosquitofish (*G. affinis*), and Panuco swordtail (*X. nigrensis*). We also tested whether mating strategies within one species (swordtail) affected thermal tolerance.
+We were interested in whether the sexual dimorphism found in many livebearing species played a role in thermal tolerance. We tested for sex-biased tolerance in CTmax and CTmin trials in three livebearing species: sailfin mollies (*P. latipinna*), Western mosquitofish (*G. affinis*), and Panuco swordtail (*X. nigrensis*). We also tested whether male morphs (i.e. large and small males) within one species (swordtail) affected thermal tolerance.
 
-In both trials (CTmax, CTmin), sex did ***not*** influence thermal tolerance. Instead, only species differences affected thermal tolerance. In general, mosquitofish tolerated the most extreme temperatures, followed by sailfin. Swordtails had the narrowest and weakest thermal tolerance, owing likely to the consistency of temperature at their place of origin (e.g spring-fed rivers).
+In both trials (CTmax, CTmin), sex and size did ***not*** influence thermal tolerance. Instead, only species differences affected thermal tolerance. In general, mosquitofish tolerated the most extreme temperatures, followed by sailfin. Swordtails had the narrowest and weakest thermal tolerance, owing likely to the consistency of temperature at their place of origin (e.g spring-fed rivers).
 
-Likewise, mating strategy did ***not*** influence thermal tolerance, further confirming that this is likely no detectable sex-biased thermal differences in our current setup. 
+Likewise, male morphs did ***not*** influence thermal tolerance, further confirming that this is likely no detectable sex-biased thermal differences in our current setup. 
 
 A power analysis shows that the actual detected sex differences in both categories is much lower than the simulated temperature differences needed in order to detect a sex-based effect given the power of our study. Therefore, smaller biologically meaningful differences can not be ruled out due to our limited sample size.
 
