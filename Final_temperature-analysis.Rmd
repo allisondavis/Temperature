@@ -316,7 +316,7 @@ sw.size.test #significant difference among sex categories; makes sense since the
 
 pw.dat <- size.data %>%
   filter(Species == "Swordtail")
-pw.test <- pairwise.wilcox.test( pw.dat$Size.mm, pw.dat$SizeGroup, p.adjust.method = "BH")
+pw.test <- pairwise.wilcox.test( pw.dat$Size.mm, pw.dat$SizeGroup, p.adjust.method = "holm")
 
 pw.test #all pairs significantly different
 
@@ -359,7 +359,6 @@ sw.eff.size #large size effects for all three combos; size ranking as follows: s
 **Collinearity** 
 
 ```{r}
-library(lme4)
 ### CTmax ###
 model1 <- lmer(CTmax.C ~ Species + Sex + Size.mm + (1|file.id.max), data = datTot, REML = FALSE)
 
@@ -530,7 +529,7 @@ plotResiduals(simulationOutput4, form = rawTempData$Size.mm)
 
 We will determine the overall effect of species (anova from 'lmerTest' package; using Satterthwaite approximation due to small sample size of random effect), and calculate the estimated marginal means and a pairwise species comparison (emmeans package). Model summaries will provide us with the effect of sex and size on the model. 
 
-**Results:** There is a significant effect of species for CTmax (P<0.001). Pairwise comparisons show swordtails to be significantly different to sailfin (p<0.001) and mosquitofish (p<0.001), but sailfin and mosquitofish do not significantly differ (p=0.061). Sex was confirmed as not a significant predictor in the model (estimate=0.284, SE=-.243, p=0.247).
+**Results:** There is a significant effect of species for CTmax (P<0.001). Pairwise comparisons show significant differences among all pairs: swordtails-sailfin (p<0.001), swordtails-mosquitofish (p<0.001), and sailfin-mosquitofish (p=0.013). Sex was confirmed as not a significant predictor in the model (estimate=0.149, SE=0.202, p=0.463), as was size (estimate= -0.002, SE=0.023, p=0.919).
 
 ```{r}
 # SPECIES ONLY MODEL
@@ -586,6 +585,37 @@ ctmax.results
 
 ```
 
+### Sensitivity analysis
+
+As our design has single-species runs, we test the sensitivity of our results to the variance estimated for clustered experimental trials. CR2 (cluster-robust standard errors) with Satterthwaite small-sample correction will be used.
+
+**RESULTS:** Sex and size remain as non-significant effects using CR2. Overall species effect is still significant, but pairwise results differ: the uncertainty around the mosquitofish-sailfin contrast has increased and the difference in CTmax between these species is no longer significant (p=0.142). This contrast is therefore sensitive to the method of variance estimation, but also is likely influenced by the small number of mosquitofish trials in which CR2 is using for its clusters. The swordtail contrasts remain significant.
+
+```{r}
+library(clubSandwich)
+#robust coeff for mods1b-d
+coef_test(mod1b, vcov= "CR2", test="Satterthwaite") #species still sig but not size
+coef_test(mod1c, vcov= "CR2", test="Satterthwaite") #species still sig but not sex
+coef_test(mod1d, vcov= "CR2", test="Satterthwaite") #sex and size still not sig
+
+#overall species effects
+
+robVCV.spp.max <- vcovCR(mod1, type = "CR2")
+
+Wald_test(mod1, constraints = constrain_zero(grep("^Species", names(fixef(mod1)))), vcov = robVCV.spp.max, test = "HTZ")
+
+#pairwise analysis
+PW.pairs.max <- pairs(PW.sp.max)
+K <- as.matrix(PW.pairs.max@linfct)
+rownames(K) <- as.character(summary(PW.pairs.max)$contrast)
+
+rob.pairs.max <- linear_contrast(mod1, vcov = robVCV.spp.max, contrasts =K, test = "Satterthwaite", p_values = TRUE, adjustment_method = "holm")
+
+rob.pairs.max
+
+```
+
+
 ## **CTmin**
 
 ### Model Selection
@@ -622,7 +652,7 @@ model.sel(mod2, mod2b, mod2c, mod2d, mod2e, mod2f, mod2g)
 
 Here, we will check if the model residuals are normal and homoscedastic.
 
-**Results:** Both the species only (most supported) and species + sex model are heteroscedastic. This is driven by species-level differences in variation. Robust standard errors will allow us to assess the significance of the effects despite this heteroscedasticity. 
+**Results:** Lower quantile deviation detected for mod2d but combined adjusted quantiles test is non-significant
 
 ```{r}
 
@@ -675,9 +705,7 @@ plotResiduals(simulationOutput4, form = rawTempData$Size.mm)
 
 ### Model Summary
 
-Again, we will use robust standard errors to assess factor significance, as this method can tolerate the heteroscedasticity we detected in our model residuals. We will determine the overall effect of species, calculate the estimated marginal means and run a pairwise species comparison all using the robust variance-covariance matrix. Lastly, we will calculate robust standard errors to illustrate the effect of sex on the model. 
-
-**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show swordtails as significantly different from sailfin and mosquitofish, and the difference between sailfin and mosquitofish was marginal (0.050). Despite the additions of sex and size improving model fit, neither were statistically significant.
+**Results:** There is a significant effect of species for CTmin (P<0.001). Pairwise comparisons show swordtails as significantly different from sailfin (p=0.004) and mosquitofish (p<0.001), and the difference between sailfin and mosquitofish was marginal (0.050). Despite the additions of sex and size improving model fit, neither were statistically significant.
 
 ```{r}
 # SPECIES ONLY MODEL
@@ -686,13 +714,13 @@ anova(mod2, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
  ## EMM & Pairwise comparisons
 
-PW.sp.max <- emmeans(mod2, "Species", lmer.df = "satterthwaite")
-summary(PW.sp.max) #EMM
-pairs(PW.sp.max, adjust = "holm") #Pairwise results
+PW.sp.min <- emmeans(mod2, "Species", lmer.df = "satterthwaite")
+summary(PW.sp.min) #EMM
+pairs(PW.sp.min, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
-PW.df <- as.data.frame(confint(PW.sp.max))
+PW.df <- as.data.frame(confint(PW.sp.min))
 
 ggplot(PW.df, aes(x=Species, y=emmean)) +
   geom_point(size=2) +
@@ -727,6 +755,36 @@ ctmin.results <- bind_rows(
   coef.table(mod2d, "D", "Size.mm|^Sex"))
   
 ctmin.results
+
+```
+
+
+### Sensitivity analysis
+
+As our design has single-species runs, we test the sensitivity of our results to the variance estimated for clustered experimental trials. CR2 (cluster-robust standard errors) with Satterthwaite small-sample correction will be used.
+
+**RESULTS:** Sex and size remain as non-significant effects using CR2 in combined model, but in individual model of species+sex, sex is now significant (p=0.030). Overall species effect is still significant, and pairwise results remain the same (although the p-value for the mosquitofish-sailfin contrast is no longer marginal, p=0.211).
+
+```{r}
+#robust coeff for mods1b-d
+coef_test(mod2b, vcov= "CR2", test="Satterthwaite") #species still sig but not size
+coef_test(mod2c, vcov= "CR2", test="Satterthwaite") #species still sig, and now sex (p=0.030)
+coef_test(mod2d, vcov= "CR2", test="Satterthwaite") #sex and size still not sig
+
+#overall species effects
+
+robVCV.spp.min <- vcovCR(mod2, type = "CR2")
+
+Wald_test(mod2, constraints = constrain_zero(grep("^Species", names(fixef(mod2)))), vcov = robVCV.spp.min, test = "HTZ")
+
+#pairwise analysis
+PW.pairs.min <- pairs(PW.sp.min)
+K <- as.matrix(PW.pairs.min@linfct)
+rownames(K) <- as.character(summary(PW.pairs.min)$contrast)
+
+rob.pairs.min <- linear_contrast(mod2, vcov = robVCV.spp.min, contrasts =K, test = "Satterthwaite", p_values = TRUE, adjustment_method = "holm")
+
+rob.pairs.min
 
 ```
 
@@ -766,7 +824,7 @@ model.sel(SWmod4, SWmod5, SWmod6)
 
 Here, we will check if the model residuals are normal and homoscedastic using the 'DHARMa' package.
 
-**Results:** Residuals for all 3 models (SWmod1-mod3) pass.  
+**Results:** Residuals for all 4 models (SWmod1, mod2, mod4 and mod5) pass.  
 
 ```{r}
 
@@ -787,6 +845,8 @@ plot(simulationOutput)
 
 plotResiduals(simulationOutput)
 plotResiduals(simulationOutput, form = swordtail.df$Sex.plot)
+plotResiduals(simulationOutput, form = swordtail.df$Size.mm)
+
 
   ### All good!
 
@@ -795,11 +855,25 @@ simulationOutput <- simulateResiduals(SWmod4, n = 1000)
 
 plot(simulationOutput)
 
-plotResiduals(simulationOutput)
-plotResiduals(simulationOutput, form = swordtail.df$Sex.plot) #threw a quantile deviation, but not sure if this is real or side effect of small samples
-cat_test <- plotResiduals(simulationOutput, form = swordtail.df$Sex.plot)
+plotResiduals(simulationOutput) #threw a quantile deviation, but not sure if this is real or side effect of small samples
+plotResiduals(simulationOutput, form = swordtail.df$Sex.plot) 
+cat_test <- testCategorical(simulationOutput, catPred = factor(model.frame(swordtail.df)$Sex.plot))
 cat_test$uniformity$p.value.cor # all = 1
 cat_test$homogeneity #p = 0.836
+
+  ### All good!
+
+
+simulationOutput <- simulateResiduals(SWmod5, n = 1000)
+
+plot(simulationOutput)
+
+plotResiduals(simulationOutput) #threw a quantile deviation, but not sure if this is real or side effect of small samples
+plotResiduals(simulationOutput, form = swordtail.df$Sex.plot) 
+plotResiduals(simulationOutput, form = swordtail.df$Size.mm)
+cat_test <- testCategorical(simulationOutput, catPred = factor(model.frame(swordtail.df)$Sex.plot))
+cat_test$uniformity$p.value.cor # all = 1
+cat_test$homogeneity #p = 0.824
 
   ### All good!
 
@@ -812,6 +886,8 @@ cat_test$homogeneity #p = 0.836
 **Results:** Sex category (large male, small male, female) did not significantly affect thermal tolerance within swordtails across both temperature categories (CTmax: p=0.617; CTmin: p=0.275). This result is mirrored in all pairwise comparisons. 
 
 ```{r}
+
+### CTmax ###
 
 # SEX CATEGORY ONLY MODEL
  ## Overall sex category effect
@@ -870,6 +946,32 @@ ggplot(PW.df.sw2, aes(x=Sex.plot, y=emmean)) +
 
 ```
 
+### Sensitivity analysis
+
+As our design has single-male morph runs (i.e. only large males or only small males), we test the sensitivity of our results to the variance estimated for clustered experimental trials. CR2 (cluster-robust standard errors) with Satterthwaite small-sample correction will be used.
+
+**RESULTS:** Overall sex category effect is still not significant; size also remains non-significant.
+
+```{r}
+#robust coeff for mods1,2,4,5
+coef_test(SWmod1, vcov= "CR2", test="Satterthwaite") #sex category still not sig
+coef_test(SWmod2, vcov= "CR2", test="Satterthwaite") #sex category and size still not sig
+coef_test(SWmod4, vcov= "CR2", test="Satterthwaite") #sex category still not sig
+coef_test(SWmod5, vcov= "CR2", test="Satterthwaite") #sex category and size still not sig
+
+#overall species effects
+
+robVCV.sw.max <- vcovCR(SWmod1, type = "CR2")
+
+Wald_test(SWmod1, constraints = constrain_zero(grep("^Sex.plot", names(fixef(SWmod1)))), vcov = robVCV.sw.max, test = "HTZ")
+
+
+robVCV.sw.min <- vcovCR(SWmod4, type = "CR2")
+
+Wald_test(SWmod4, constraints = constrain_zero(grep("^Sex.plot", names(fixef(SWmod4)))), vcov = robVCV.sw.min, test = "HTZ")
+
+
+```
 
 
 # **Power Analysis**
@@ -883,96 +985,180 @@ Based on the power of our current study, we will calculate the average temperatu
 Power simulation:
 
 ```{r}
-# Function to simulate power and find minimum detectable sex difference
+# Function to simulate power and estimate minimum detectable sex difference
 # Inputs:
-#   nsim: number of simulations per effect size
-#   species: vector of species names
-#   nM, nF: vectors of males/females per species
-#   sigma: residual SD from linear model
-#   alpha: significance threshold
-#   power_target: desired power (e.g., 0.8)
-#   delta_range: vector of sex differences to test
-#   trait_name: name of the trait (for labeling)
+#   data: dataset containing Temp, Species, Sex, and Trial ID columns
+#   nsim: number of simulations per effect size (default = 1000)
+#   delta_range: vector of sex differences in °C to test (default = seq(0, 1.5, by = 0.1))
+#   alpha: significance threshold (default = 0.05)   
+#   power_target: desired power (default = 0.80)
+#   seed: random seed for reproducibility (default = 123)
+# Automatically extracted from data:
+#   nM, nF: number of males and females within each species
+#   sigma_resid: residual standard deviation from the mixed model
+#   sigma_trial: trial-level random-intercept standard deviation
+#   Species: species identities
+#   Trial: experimental trial IDs
+# Statistical model:
+#   Temp ~ Species + Sex + (1|Trial)
+# Significance assessed using Type II ANOVA w/ Satterthwiate-approximated ddf
+# Outputs:
+#   power_curve: estimate power across simulate sex differences
+#   MMD: minimum tested sex difference achieving target power
+#   residual_SD: estimated residual standard deviation
+#   trial_SD: estimated trial-level standard deviation
 
-simulate_MDD <- function(nsim=1000, species, nM, nF, sigma, alpha=0.05,
-                         power_target=0.8, delta_range=seq(0, 3, by=0.1),
-                         trait_name="Trait") {
-  
-  power_results <- data.frame(delta = delta_range, power = NA)
-  
-  for(i in seq_along(delta_range)){
-    sig_count <- 0
-    for(j in 1:nsim){
-      temp <- c()
-      sex <- c()
-      sp <- c()
-      
-      for(k in seq_along(species)){
-        # simulate male and female data around delta/2 difference
-        temp <- c(temp,
-                  rnorm(nM[k], mean = delta_range[i]/2, sd = sigma),
-                  rnorm(nF[k], mean = -delta_range[i]/2, sd = sigma))
-        sex <- c(sex, rep(c("M","F"), times=c(nM[k], nF[k])))
-        sp <- c(sp, rep(species[k], times=nM[k]+nF[k]))
-      }
-      
-      df <- data.frame(temp=temp, sex=sex, species=sp)
-      
-      # Fit linear model
-      m <- lm(temp ~ sex + species, data=df)
-      
-      # extract p-value for sex
-      pval <- summary(m)$coefficients["sexM","Pr(>|t|)"]
-      if(!is.na(pval) & pval < alpha) sig_count <- sig_count + 1
-    }
-    
-    power_results$power[i] <- sig_count / nsim
-  }
-  
-  # Find minimum detectable delta (closest to target power)
-  closest <- power_results$delta[which.min(abs(power_results$power - power_target))]
-  
-  cat("\n---", trait_name, "---\n")
-  cat("Minimum detectable sex difference for", power_target*100, "% power: ", closest, "\n\n")
-  
-  return(list(power_curve = power_results, MDD = closest))
-} ### END FUNCTION
 
-# ==========================
 
-species <- c("sailfin","mosquitofish","swordtail")
-nM <- c(20, 13, 15) #number of males for each species
-nF <- c(20, 12, 15) #number of females for each species
+simulate_MDD_mixed <- function(data, nsim = 1000,
+                               delta_range = seq(0, 1.5, by = 0.1),
+                               alpha = 0.05,
+                               power_target = 0.8,
+                               seed = 123) {
 
-# Sigma values are the residual SD from the above linear models
-sigma_CTmax <- 0.9861918   # summary(mod1f)$sigma
-sigma_CTmin <- 0.5801441   # summary(mod2f)$sigma
+  set.seed(seed)
 
-# Run simulations
-MDD_CTmax <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmax, trait_name="CTmax") #0.6°C
-MDD_CTmin <- simulate_MDD(species=species, nM=nM, nF=nF, sigma=sigma_CTmin, trait_name="CTmin") #0.3°C
+  # Expected columns: Temp, Species, Sex, Trial
+  df <- data[complete.cases(
+    data[, c("Temp", "Species", "Sex", "Trial")]), ]
 
-CTmax_df <- MDD_CTmax$power_curve %>% mutate(Trait="CTmax", MDD=MDD_CTmax$MDD)
-CTmin_df <- MDD_CTmin$power_curve %>% mutate(Trait="CTmin", MDD=MDD_CTmin$MDD)
-power_all <- bind_rows(CTmax_df, CTmin_df)
+  df$Species <- factor(df$Species)
+  df$Trial <- factor(df$Trial)
 
-# Plot
-ggplot(power_all, aes(x=delta, y=power, color=Trait)) +
-  geom_line(size=1.1) +
-  geom_hline(yintercept=0.8, linetype="dashed", color="black") +
-  geom_vline(aes(xintercept=MDD, color=Trait), linetype="dotted", size= 1) +
-  labs(title="Power curves and minimum detectable sex differences",
-       x="Sex difference (°C)",
-       y="Power",
-       color="Trait") +
-  theme_classic() +
-  theme(text = element_text(size=12)) + 
+  # Accept either F/M or Female/Male labels
+  df$Sex <- as.character(df$Sex)
+  df$Sex[df$Sex == "F"] <- "female"
+  df$Sex[df$Sex == "M"] <- "male"
+  df$Sex <- factor(df$Sex, levels = c("female", "male"))
+
+  if (anyNA(df$Sex)) {
+    stop("Check Sex labels: expected female/male or F/M.") }
+
+  # Estimate variance components from observed data
+  base <- lmerTest::lmer(
+    Temp ~ Species + Sex + (1 | Trial),
+    data = df,
+    REML = TRUE)
+
+  sigma_resid <- sigma(base)
+
+  sigma_trial <- as.numeric(
+    attr(VarCorr(base)$Trial, "stddev"))[1]
+
+  # Retain fitted species means but set the true sex
+  # difference to zero before adding simulated effects
+  beta <- fixef(base)
+  beta[grepl("^Sex", names(beta))] <- 0
+
+  X <- model.matrix(~ Species + Sex, data = df)
+  mu <- as.numeric(
+    X[, names(beta), drop = FALSE] %*% beta)
+
+  results <- lapply(delta_range, function(delta) {
+
+    pvals <- replicate(nsim, {
+
+      # Simulate one random intercept per trial
+      trial_effect <- rnorm(
+        nlevels(df$Trial),
+        mean = 0,
+        sd = sigma_trial)
+
+      sim_df <- df
+
+      sim_df$Temp <- mu +
+        delta * (df$Sex == "male") +
+        trial_effect[as.integer(df$Trial)] +
+        rnorm(nrow(df), 0, sigma_resid)
+
+      # Fit same mixed model as the primary analysis
+      fit <- tryCatch(
+        suppressMessages(
+        suppressWarnings(
+          lmerTest::lmer(
+            Temp ~ Species + Sex + (1 | Trial),
+            data = sim_df,
+            REML = FALSE))),
+        error = function(e) NULL)
+
+      if (is.null(fit)) {
+        NA_real_
+      } else {
+        tryCatch(
+          as.numeric(
+            anova(
+              fit,
+              type = 2,
+              ddf = "Satterthwaite"
+           )["Sex", "Pr(>F)"]),
+          error = function(e) NA_real_)}
+    })
+
+    n_valid <- sum(!is.na(pvals))
+
+    data.frame(
+      delta = delta,
+      power = if (n_valid > 0) {
+        mean(pvals < alpha, na.rm = TRUE)
+      } else NA_real_,
+      valid = n_valid)
+  })
+
+  power_results <- bind_rows(results)
+
+  # First detectable difference reaching target power
+  idx <- which(power_results$power >= power_target)[1]
+
+  mdd <- if (is.na(idx)) NA_real_ else {
+    power_results$delta[idx] }
+
+  list(
+    power_curve = power_results,
+    MDD = mdd,
+    residual_SD = sigma_resid,
+    trial_SD = sigma_trial) 
+}
+######### END FUNCTION ##########
+
+# CTmax
+dat_max <- data.frame(
+  Temp = datTot$CTmax,
+  Species = datTot$Species,
+  Sex = datTot$Sex,
+  Trial = datTot$file.id.max)
+
+# CTmin
+dat_min <- data.frame(
+  Temp = datTot$CTmin,
+  Species = datTot$Species,
+  Sex = datTot$Sex,
+  Trial = datTot$file.id.min)
+
+MDD_CTmax <- simulate_MDD_mixed(dat_max)
+MDD_CTmin <- simulate_MDD_mixed(dat_min)
+
+MDD_CTmax$MDD
+MDD_CTmin$MDD
+
+power_all <- bind_rows(
+  mutate(MDD_CTmax$power_curve,
+         Trait = "CTmax", MDD = MDD_CTmax$MDD),
+  mutate(MDD_CTmin$power_curve,
+         Trait = "CTmin", MDD = MDD_CTmin$MDD))
+
+ggplot(power_all, aes(delta, power, color = Trait)) +
+  geom_line(linewidth = 1.1) +
+  geom_hline(yintercept = 0.8, linetype = "dashed") +
+  geom_vline(aes(xintercept = MDD),
+             linetype = "dotted") +
+  labs(
+    x = "Sex difference (°C)",
+    y = "Estimated power",
+    color = "Trait") +
+  theme_classic() + 
   scale_color_manual(name="Trait",
                     values = c("CTmax"="#E1AF00", "CTmin"="#78B7C5"),
                     labels = c("CTmax"="CTmax", "CTmin"="CTmin"))
-
-
-
 ```
 
 
@@ -991,7 +1177,7 @@ females <- rawTempData[rawTempData$Sex == "female",]
 df <- data.frame(
   type = c("CTmax", "CTmin"),
   Actual   = c(0.2, 0.1),
-  Simulated   = c(0.6, 0.3))
+  Simulated   = c(0.6, 0.4))
 df
 
 ```
