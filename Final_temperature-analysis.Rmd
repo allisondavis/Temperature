@@ -157,11 +157,19 @@ summ.stats <- dat.long %>%
 
 #get n for each sex in each species
 sex.df <- datTot %>%
-  count(Species, Sex) %>%
-  tidyr::pivot_wider(
-    names_from  = Sex,
-    values_from = n,
-    values_fill = 0)
+  group_by(Species) %>%
+  summarise(
+    female = sum(Sex == "female"),
+    male_n = sum(Sex == "male"),
+    large_n = sum(Sex == "male" & Size.cat == "large"),
+    small_n = sum(Sex == "male" & Size.cat == "small"),
+    .groups = "drop") %>%
+  mutate(
+    male = if_else(
+      Species == "Swordtail",
+      sprintf("%d (large), %d (small)", large_n, small_n),
+      as.character(male_n))) %>%
+  select(Species, male, female)
 
 #final table
 summ.stats.all <- summ.stats %>%
@@ -540,7 +548,7 @@ anova(mod1, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
 PW.sp.max <- emmeans(mod1, "Species", lmer.df = "satterthwaite")
 summary(PW.sp.max) #EMM
-pairs(PW.sp.max, adjust = "holm") #Pairwise results
+summary(pairs(PW.sp.max), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -594,9 +602,9 @@ As our design has single-species runs, we test the sensitivity of our results to
 ```{r}
 library(clubSandwich)
 #robust coeff for mods1b-d
-coef_test(mod1b, vcov= "CR2", test="Satterthwaite") #species still sig but not size
-coef_test(mod1c, vcov= "CR2", test="Satterthwaite") #species still sig but not sex
-coef_test(mod1d, vcov= "CR2", test="Satterthwaite") #sex and size still not sig
+conf_int(mod1b, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig but not size
+conf_int(mod1c, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig but not sex
+conf_int(mod1d, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex and size still not sig
 
 #overall species effects
 
@@ -716,7 +724,7 @@ anova(mod2, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
 PW.sp.min <- emmeans(mod2, "Species", lmer.df = "satterthwaite")
 summary(PW.sp.min) #EMM
-pairs(PW.sp.min, adjust = "holm") #Pairwise results
+summary(pairs(PW.sp.min), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -766,10 +774,11 @@ As our design has single-species runs, we test the sensitivity of our results to
 **RESULTS:** Sex and size remain as non-significant effects using CR2 in combined model, but in individual model of species+sex, sex is now significant (p=0.030). Overall species effect is still significant, and pairwise results remain the same (although the p-value for the mosquitofish-sailfin contrast is no longer marginal, p=0.211).
 
 ```{r}
-#robust coeff for mods1b-d
-coef_test(mod2b, vcov= "CR2", test="Satterthwaite") #species still sig but not size
-coef_test(mod2c, vcov= "CR2", test="Satterthwaite") #species still sig, and now sex (p=0.030)
-coef_test(mod2d, vcov= "CR2", test="Satterthwaite") #sex and size still not sig
+#robust coeff for mods2b-d
+conf_int(mod2b, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig but not size
+conf_int(mod2c, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig, and now sex (p=0.030)
+conf_int(mod2d, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex and size still not sig
+
 
 #overall species effects
 
@@ -897,7 +906,7 @@ anova(SWmod1, type = 2, ddf = "Satterthwaite") #not significant (p=0.617)
 
 PW.sw.max <- emmeans(SWmod1, "Sex.plot", lmer.df = "satterthwaite")
 summary(PW.sw.max) #EMM
-pairs(PW.sw.max, adjust = "holm") #Pairwise results
+summary(pairs(PW.sw.max), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -928,7 +937,7 @@ anova(SWmod4, type = 2, ddf = "Satterthwaite") #not significant (p=0.275)
 
 PW.sw.min <- emmeans(SWmod4, "Sex.plot", lmer.df = "satterthwaite")
 summary(PW.sw.min) #EMM
-pairs(PW.sw.min, adjust = "holm") #Pairwise results
+summary(pairs(PW.sw.min), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -954,10 +963,10 @@ As our design has single-male morph runs (i.e. only large males or only small ma
 
 ```{r}
 #robust coeff for mods1,2,4,5
-coef_test(SWmod1, vcov= "CR2", test="Satterthwaite") #sex category still not sig
-coef_test(SWmod2, vcov= "CR2", test="Satterthwaite") #sex category and size still not sig
-coef_test(SWmod4, vcov= "CR2", test="Satterthwaite") #sex category still not sig
-coef_test(SWmod5, vcov= "CR2", test="Satterthwaite") #sex category and size still not sig
+conf_int(SWmod1, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category still not sig
+conf_int(SWmod2, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category and size still not sig
+conf_int(SWmod4, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category still not sig
+conf_int(SWmod5, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category and size still not sig
 
 #overall species effects
 

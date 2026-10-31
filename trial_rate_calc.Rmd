@@ -172,24 +172,24 @@ t.test(min.rates$Rate, mu=-0.3) #significant (p<0.001)
 
 
 # CTmax by species
-wt <- max.rates %>%
+tt <- max.rates %>%
   group_by(Species) %>%
   summarize(statistic =t.test(Rate, mu=0.3)$statistic,
           p.value = t.test(Rate, mu=0.3)$p.value)
 
-wt
+tt
 ### Only swordtail CTmax trial rates differed from 0.3degC/min (p<0.001).
 
 
 
 
 # CTmin by species
-wt2 <- min.rates %>%
+tt2 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =t.test(Rate, mu=-0.3)$statistic,
           p.value = t.test(Rate, mu=-0.3)$p.value) 
 
-wt2
+tt2
 ### all species' CTmin trial rates differed from -0.3degC/min (p<0.001 for all).
 
 ```
@@ -207,12 +207,12 @@ t.test(min.rates$Rate, mu=-0.1) #not significant (p=0.364)
 
 
 # CTmin by species
-wt3 <- min.rates %>%
+tt3 <- min.rates %>%
   group_by(Species) %>%
   summarize(statistic =t.test(Rate, mu=-0.1)$statistic,
           p.value = t.test(Rate, mu=-0.1)$p.value) 
 
-wt3
+tt3
 ### No CTmin rates in any species differ from -0.1degC/min.
 
 

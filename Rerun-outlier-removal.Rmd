@@ -147,7 +147,8 @@ out.min <- ggplot(df_flagged, aes(x = CTmin.C, fill = is_outlier_min)) +
   facet_wrap(~Species, scales = "free_y") +
   scale_fill_manual(values = c("FALSE" = "grey70", "TRUE" = "#d95f02"),
                     name = "Data Status",
-                    labels = c("Normal", "Outlier")) +
+                    labels = c("Normal", "Outlier"),
+                    drop = FALSE) +
   labs(title = "CTmin",
        x = "Critical Thermal Minimum (°C)",
        y = "Frequency") +
@@ -160,9 +161,10 @@ out.max <- ggplot(df_flagged, aes(x = CTmax.C, fill = is_outlier_max)) +
   facet_wrap(~Species, scales = "free_y") +
   scale_fill_manual(values = c("FALSE" = "grey70", "TRUE" = "#d95f02"),
                     name = "Data Status",
-                    labels = c("Normal", "Outlier")) +
+                    labels = c("Normal", "Outlier"),
+                    drop = FALSE) +
   labs(title = "CTmax",
-       x = "Critical Thermal Minimum (°C)",
+       x = "Critical Thermal Maximum (°C)",
        y = "Frequency") +
   theme_minimal()
 out.max #outliers for swordtail and mosquitofish
@@ -176,8 +178,8 @@ outlier_individuals <- df_flagged %>%
 outlier_individuals #all females except 1 male
 
 #filter out outliers from df
-O.rawTempData <- O.rawTempData %>%
-  filter(!Name %in% c("Bob", "Cherrios", "Ellie", "Lane", "Loreli", "Rory", "Toast"))
+O.rawTempData <- df_flagged %>%
+  filter(!is_outlier_max & !is_outlier_min)
 
 
 
@@ -584,7 +586,7 @@ anova(mod1, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
 PW.sp.max <- emmeans(mod1, "Species", lmer.df = "satterthwaite")
 summary(PW.sp.max) #EMM
-pairs(PW.sp.max, adjust = "holm") #Pairwise results
+summary(pairs(PW.sp.max), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -617,6 +619,24 @@ summary(slopes, infer = c(TRUE, TRUE)) #show a general negative trend for female
 
 pairs(slopes) #does show a significant difference between males and females, but again, this difference could be driven by species-specific differences in size-sex relationships
 
+# SUMMARY TABLE
+coef.table <- function(model, label, trait) {
+  as.data.frame(coef(summary(model))) %>%
+    rownames_to_column("Predictor") %>%
+    filter(grepl(trait, Predictor)) %>%
+    mutate(Model = label) %>%
+    mutate(
+      CI_low = Estimate - qt(0.975, df) * `Std. Error`,
+      CI_high = Estimate + qt(0.975, df) * `Std. Error`) }
+
+ctmax.results <- bind_rows(
+  coef.table(mod1b, "B", "Size.mm"),
+  coef.table(mod1c, "C", "^Sex"),
+  coef.table(mod1d, "D", "Size.mm|^Sex"),
+  coef.table(mod1e, "E", "Size.mm|^Sex"))
+  
+ctmax.results
+
 ```
 
 ### Sensitivity analysis
@@ -627,8 +647,8 @@ As our design has single-species runs, we test the sensitivity of our results to
 
 ```{r}
 library(clubSandwich)
-#robust coeff for mods1b-d
-coef_test(mod1e, vcov= "CR2", test="Satterthwaite") #sex:size interaction still significant
+#robust coeff for mod1e
+conf_int(mod1e, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex:size interaction still significant
 
 #overall species effects
 
@@ -760,7 +780,7 @@ anova(mod2, type = 2, ddf = "Satterthwaite") #significant (p<0.001)
 
 PW.sp.min <- emmeans(mod2, "Species", lmer.df = "satterthwaite")
 summary(PW.sp.min) #EMM
-pairs(PW.sp.min, adjust = "holm") #Pairwise results
+summary(pairs(PW.sp.min), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -796,6 +816,15 @@ anova(mod2d, type = 2, ddf = "Satterthwaite") #size is significant (p=0.036)
 summary(mod2e)
 anova(mod2e, type = 2, ddf = "Satterthwaite") #size*sex not significant
 
+# SUMMARY TABLE
+
+ctmin.results <- bind_rows(
+  coef.table(mod2b, "B", "Size.mm"),
+  coef.table(mod2c, "C", "^Sex"),
+  coef.table(mod2d, "D", "Size.mm|^Sex"),
+  coef.table(mod2e, "E", "Size.mm|^Sex"))
+  
+ctmin.results
 
 ```
 
@@ -808,10 +837,10 @@ As our design has single-species runs, we test the sensitivity of our results to
 
 ```{r}
 #robust coeff for mods1b-d
-coef_test(mod2b, vcov= "CR2", test="Satterthwaite") #species still sig but not size
-coef_test(mod2c, vcov= "CR2", test="Satterthwaite") #species still sig, but still not sex
-coef_test(mod2d, vcov= "CR2", test="Satterthwaite") #neither sex nor size sig
-coef_test(mod2e, vcov= "CR2", test="Satterthwaite") #interaction effect still not sig
+conf_int(mod2b, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig but not size
+conf_int(mod2c, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #species still sig, but still not sex
+conf_int(mod2d, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #neither sex nor size sig
+conf_int(mod2e, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #interaction effect still not sig
 
 #overall species effects
 
@@ -937,7 +966,7 @@ anova(SWmod1, type = 2, ddf = "Satterthwaite") #not significant (p=0.091)
 
 PW.sw.max <- emmeans(SWmod1, "Sex.plot", lmer.df = "satterthwaite")
 summary(PW.sw.max) #EMM
-pairs(PW.sw.max, adjust = "holm") #Pairwise results
+summary(pairs(PW.sw.max), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -972,7 +1001,7 @@ anova(SWmod4, type = 2, ddf = "Satterthwaite") #not significant (p=0.123)
 
 PW.sw.min <- emmeans(SWmod4, "Sex.plot", lmer.df = "satterthwaite")
 summary(PW.sw.min) #EMM
-pairs(PW.sw.min, adjust = "holm") #Pairwise results
+summary(pairs(PW.sw.min), infer = c(TRUE,TRUE), level = 0.95, adjust = "holm") #Pairwise results
       
  ## Plotting EMM
 
@@ -998,10 +1027,10 @@ As our design has single-male morph runs (i.e. only large males or only small ma
 
 ```{r}
 #robust coeff for mods1,2,4,5
-coef_test(SWmod1, vcov= "CR2", test="Satterthwaite") #sex category still not sig
-coef_test(SWmod2, vcov= "CR2", test="Satterthwaite") #sex category for small male sig (p=0.034) but not sig for large male or size
-coef_test(SWmod4, vcov= "CR2", test="Satterthwaite") #sex category is sig for small male (p=0.043) but not large male
-coef_test(SWmod5, vcov= "CR2", test="Satterthwaite") #sex category is marginal for small male (p=0.054) but large male and size still not sig
+conf_int(SWmod1, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category still not sig
+conf_int(SWmod2, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category for small male sig (p=0.034) but not sig for large male or size
+conf_int(SWmod4, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category is sig for small male (p=0.043) but not large male
+conf_int(SWmod5, vcov = "CR2", level = 0.95, test = "Satterthwaite", p_values = TRUE) #sex category is marginal for small male (p=0.054) but large male and size still not sig
 
 #overall species effects
 
@@ -1166,14 +1195,14 @@ simulate_MDD_mixed <- function(data, nsim = 1000,
 
 # CTmax
 dat_max <- data.frame(
-  Temp = O.datTot$CTmax,
+  Temp = O.datTot$CTmax.C,
   Species = O.datTot$Species,
   Sex = O.datTot$Sex,
   Trial = O.datTot$file.id.max)
 
 # CTmin
 dat_min <- data.frame(
-  Temp = O.datTot$CTmin,
+  Temp = O.datTot$CTmin.C,
   Species = O.datTot$Species,
   Sex = O.datTot$Sex,
   Trial = O.datTot$file.id.min)
@@ -1243,12 +1272,1123 @@ A power analysis shows that the actual detected sex differences in both categori
 ***
 ***
 
+# **Tables/Figures**
+
+## Tables
+
+### Model coefficients
+
+```{r}
+
+cr2.table <- function(model, trait, label) {
+  V <- vcovCR(model, type = "CR2")
+  
+  as.data.frame(
+    conf_int(model, vcov = V, level = 0.95, test = "Satterthwaite", p_values = TRUE)) %>%
+    filter(Coef %in% c("Sexmale", "Size.mm")) %>%
+    transmute(
+      Trait = trait,
+      Model = label,
+      Predictor = Coef,
+      CR2_Estimate = beta,
+      CR2_SE = SE,
+      CR2_low = CI_L,
+      CR2_high = CI_U,
+      CR2_p = p_val)
+}
+
+O.cr2.results <- bind_rows(
+  cr2.table(mod2b, "CTmin", "B"),
+  cr2.table(mod2c, "CTmin", "C"),
+  cr2.table(mod2d, "CTmin", "D"),
+  cr2.table(mod2e, "CTmin", "E"),
+  cr2.table(mod1b, "CTmax", "B"),
+  cr2.table(mod1c, "CTmax", "C"),
+  cr2.table(mod1d, "CTmax", "D"),
+  cr2.table(mod1e, "CTmax", "E"))
+
+O.model.results <- bind_rows(
+  ctmin.results %>% mutate(Trait = "CTmin"),
+  ctmax.results %>% mutate(Trait = "CTmax")) %>%
+  transmute(
+    Trait,
+    Model,
+    Predictor,
+    MB_Estimate = Estimate,
+    MB_SE = `Std. Error`,
+    MB_low = CI_low,
+    MB_high = CI_high,
+    MB_df = df,
+    MB_p = `Pr(>|t|)`)
+
+O.combined.results <- O.model.results %>%
+  left_join(O.cr2.results, by = c("Trait", "Model", "Predictor")) %>%
+  mutate(
+    Trait = factor(Trait, levels = c("CTmin", "CTmax")),
+    Model = factor(Model, levels = c("B", "C", "D", "E")), 
+    Effect = case_when(
+      Predictor == "Sexmale" ~ "Sex",
+      Predictor == "Size.mm" ~ "Size", 
+      TRUE ~ Predictor)) %>%
+  arrange(Trait, Model, match(Predictor, c("Sexmale", "Size.mm")))
+
+O.combined.results <- O.combined.results %>%
+  mutate(
+    p.disp.mb = case_when(
+      MB_p < 0.001 ~ "*p* < 0.001",
+      MB_p < 0.05  ~ paste0(sprintf("%.3f", MB_p)),
+      TRUE            ~ sprintf("%.3f", MB_p))) %>%
+  mutate(
+    p.disp.cr2 = case_when(
+      CR2_p < 0.001 ~ "*p* < 0.001",
+      CR2_p < 0.05  ~ paste0(sprintf("%.3f", CR2_p)),
+      TRUE            ~ sprintf("%.3f", CR2_p)))
+
+O.table.results <- O.combined.results %>%
+  mutate(
+    Model = dplyr::recode(
+      as.character(Model),
+      "B" = "Species + Size",
+      "C" = "Species + Sex",
+      "D" = "Species + Sex \n+Size",
+      "E" = "Species + Sex*Size")) %>%
+  transmute(
+    Trait,
+    Model,
+    Effect,
+    mb_est = sprintf("%.3f (%.3f)", MB_Estimate, MB_SE),
+    mb_ci = sprintf("[%.3f, %.3f]", MB_low, MB_high),
+    mb_df = sprintf("%.2f", MB_df),
+    mb_p = p.disp.mb,
+    
+    cr2_est = sprintf("%.3f (%.3f)", CR2_Estimate, CR2_SE),
+    cr2_ci = sprintf("[%.3f, %.3f]", CR2_low, CR2_high),
+    cr2_p = p.disp.cr2)
+
+O.coeff.table <- O.table.results %>%
+  gt(rowname_col = "Model", groupname_col = "Trait", row_group_as_column = TRUE) %>%
+  tab_stubhead(label = "Model") %>%
+  tab_spanner(label = "Model-based inference", columns = c(Effect, mb_est, mb_ci, mb_df, mb_p)) %>%
+  tab_spanner(label = "CR2 analysis", columns = c(cr2_est, cr2_ci, cr2_p)) %>%
+  cols_label(
+    Effect = "Effect",
+    mb_est = "Estimate (SE)",
+    mb_ci = "95% CI", 
+    mb_df = "df",
+    mb_p = md("*p*-value"), 
+    cr2_est = "Estimate (SE)",
+    cr2_ci = "95% CI",
+    cr2_p = md("*p*-value")) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(Effect,mb_est, mb_ci,mb_df, cr2_est, cr2_ci))) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(2)),
+    locations = cells_body(columns = c(mb_p))) %>%
+  cols_align("center", everything()) %>%
+  opt_horizontal_padding(scale = 2)
+
+O.coeff.table
+
+gtsave(O.coeff.table, "OnlineResource4_coefficients.rtf")
+
+```
+
+
+### Summary Stats
+
+```{r}
+
+O.sum.stats.tab <- O.summ.stats.all %>%
+  arrange(Species, Trial) %>%
+  select(Species, Trial, mean_sd, min, med, max, male, female) %>%
+  gt(rowname_col = "Trial", groupname_col = "Species") %>%
+  cols_label(
+    Species = "Species",
+    Trial   = "Trial",
+    mean_sd = "Mean (\u00B0C) (SD)",
+    min     = "Minimum (\u00B0C)",
+    med     = "Median (\u00B0C)",
+    max     = "Maximum (\u00B0C)",
+    male    = "Males",
+    female  = "Females") %>%
+  fmt_number(
+    columns = c(min, med, max),
+    decimals = 2) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(mean_sd, min, med, max, male))) %>%
+  cols_align("center", everything()) %>%
+  opt_horizontal_padding(scale = 2)
+
+
+gtsave(O.sum.stats.tab, "OnlineResource4_sum-stats.rtf")
+
+```
+
+
+### Power analysis
+
+```{r}
+
+O.df <- data.frame(
+  type = c("CTmax", "CTmin"),
+  Actual   = c(0.2, 0.4),
+  Simulated   = c(0.4, 0.4))
+
+O.power.an <- O.df %>%
+  gt() %>%
+  cols_label(type ="Temperature Category",
+             Actual = "Actual difference (\u00B0C)",
+             Simulated = "Simulated difference needed (\u00B0C)") %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(type, Actual))) %>%
+  cols_align(align = "center", everything())  %>%
+  opt_horizontal_padding(scale=2)
+
+O.power.an
+
+gtsave(O.power.an, "OnlineResource4_power-analysis.rtf")
+
+
+```
+
+
+## Figures
+
+### Size x species
+
+```{r}
+
+O.size.pvals <- data.frame(
+  Species = c("Swordtail", "Swordtail", "Swordtail", "Sailfin", "Mosquitofish"),
+  group1 = c("Female", "Male (large)", "Female", "Female", "Female"),
+  group2 = c("Male (large)", "Male (small)", "Male (small)", "Male", "Male"),
+  label  = c("p < 0.001*", "p = 0.001*", "p = 0.002*", "ns", "p < 0.001*"),
+  y.position = c(45, 46.5, 48, 47, 47))
+
+O.size.pvals$fontface <- ifelse(O.size.pvals$label == "ns", "plain", "bold")
+
+O.size.plot <- ggplot(O.dat.plot, aes(x = Sex.plot, y = Size.mm)) +
+  geom_rect(
+    data = subset(O.datTot, Species == "Sailfin"),
+    inherit.aes = FALSE,
+    xmin = -Inf, xmax = Inf,
+    ymin = -Inf, ymax = Inf,
+    fill = "grey95") +
+  geom_boxplot(linewidth= 0.4) +
+  geom_point(color= "#8D8680", size=2, alpha=0.5) +
+  facet_wrap(~ Species, scales = "free_x") +
+  scale_y_continuous(breaks = scales::breaks_pretty(n=8)) +
+  scale_x_discrete(
+    labels = function(x) {
+      ifelse(x %in% c("Male (small)", "Male (large)"),
+             gsub(" ", "\n", x),
+             x)}) +
+  stat_pvalue_manual(
+    O.size.pvals,
+    label = "label",
+    tip.length = 0.01,
+    bracket.size = 0.5,
+    fontface = "fontface") +
+  theme_classic() + 
+  xlab("") +
+  ylab("Length (mm)")
+
+#Save as tiff
+ggsave(
+  filename = "OnlineResources4_sizes.tiff",
+  plot = O.size.plot,
+  device = ragg::agg_tiff,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+#save as eps
+ggsave(
+  filename = "OnlineResources4_sizes.eps",
+  plot = O.size.plot,
+  device = cairo_ps,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+```
+
+
+### Emmeans
+
+```{r}
+
+#install.packages("scales")   #v1.4.0
+
+### CTmax - EMM
+O.df.pvals.max <- data.frame(
+  group1 = c("Swordtail", "Sailfin", "Swordtail"),
+  group2 = c("Sailfin", "Mosquitofish", "Mosquitofish"),
+  label  = c("p < 0.001*", "ns", "p < 0.001*"),
+  y.position = c(39, 39, 39))
+
+O.df.pvals.max$fontface <- ifelse(O.df.pvals.max$label == "ns", "plain", "bold")
+
+O.PW.df.max <- as.data.frame(confint(PW.sp.max))
+
+O.emmean.max <- ggplot(O.PW.df.max, aes(x=Species, y=emmean)) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6),
+                     expand = expansion(mult = c(0.05, 0.25))) +
+  stat_pvalue_manual(
+    O.df.pvals.max,
+    label = "label",
+    tip.length = 0.01,
+    bracket.size = 0.5,
+    step.increase = 0.1,
+    fontface = "fontface") +
+  ylab("Estimated mean CTmax (\u00B0C) \n") +
+  xlab("\n Species") +
+  theme_classic(base_size = 10, base_family = "sans") +
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+O.emmean.max
+
+
+### CTmin-EMM
+
+O.df.pvals.min <- data.frame(
+  group1 = c("Swordtail", "Sailfin", "Swordtail"),
+  group2 = c("Sailfin", "Mosquitofish", "Mosquitofish"),
+  label  = c("p = 0.003*", "ns", "p < 0.001*"),
+  y.position = c(11.5, 11.5, 11.5))
+
+O.df.pvals.min$fontface <- ifelse(O.df.pvals.min$label == "ns", "plain", "bold")
+
+O.PW.df.min <- as.data.frame(confint(PW.sp.min))
+
+O.emmean.min <- ggplot(O.PW.df.min, aes(x=Species, y=emmean)) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6),
+                     expand = expansion(mult = c(0.05, 0.25))) +
+  ylab("Estimated mean CTmin (\u00B0C) \n") +
+  stat_pvalue_manual(
+    O.df.pvals.min,
+    label = "label",
+    tip.length = 0.01,
+    bracket.size = 0.5,
+    step.increase = 0.1,
+    fontface = "fontface") +
+  xlab("\n Species") +
+  theme_classic(base_size = 10, base_family = "sans") + 
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+O.emmean.min
+
+O.final.plot_em.spp<- ((O.emmean.max + O.emmean.min) + plot_layout(axis_titles = "collect") + plot_annotation(tag_levels = "a"))
+O.final.plot_em.spp
+
+#Save as tiff
+ggsave(
+  filename = "OnlineResource4_em-species.tiff",
+  plot = O.final.plot_em.spp,
+  device = ragg::agg_tiff,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+#save as eps
+ggsave(
+  filename = "OnlineResource4_em-species.eps",
+  plot = O.final.plot_em.spp,
+  device = cairo_ps,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+```
+
+### Sex & size
+
+```{r}
+
+#install.packages("lme4")
+
+### CTmax- sex and size
+
+# Extract observations used in the full model
+df.max <- model.frame(mod1d)
+
+# Generate predictions only within each observed species x sex size range
+pred.max <- df.max %>%
+  group_by(Species, Sex) %>%
+  reframe(
+    Size.mm = seq(
+      min(Size.mm),
+      max(Size.mm),
+      length.out = 50))
+
+# Construct fixed-effect design matrix
+X <- model.matrix(
+  delete.response(
+    terms(lme4::nobars(formula(mod1d)))),
+  data = pred.max)
+
+# Model coefficients and covariance matrix
+beta <- lme4::fixef(mod1d)
+V <- as.matrix(vcov(mod1d))
+
+X <- X[, names(beta), drop = FALSE]
+V <- V[names(beta), names(beta), drop = FALSE]
+
+# Predicted means and approximate 95% confidence intervals
+pred.max$fit <- as.numeric(X %*% beta)
+
+pred.max$SE <- sqrt(
+  rowSums((X %*% V) * X))
+
+pred.max$lower <- pred.max$fit - 1.96 * pred.max$SE
+pred.max$upper <- pred.max$fit + 1.96 * pred.max$SE
+
+# Plot
+O.sex.size.plot.max <- ggplot(df.max, aes(x = Size.mm, y = CTmax.C, color = Sex)) +
+  geom_point(aes(shape= Sex), alpha = 0.6, size = 2) +
+  geom_ribbon(data = pred.max, aes(
+      x = Size.mm,
+      ymin = lower,
+      ymax = upper,
+      fill = Sex,
+      group = Sex),
+    inherit.aes = FALSE,
+    alpha = 0.15) +
+  geom_line(
+    data = pred.max, aes(x = Size.mm, y = fit, color = Sex, group = Sex),
+    inherit.aes = FALSE,
+    linewidth = 1) +
+  facet_wrap(~ Species, scales = "free_x") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n=5)) +
+  labs(
+    x = "Body size (mm)",
+    y = "CTmax (°C)",
+    color = "Sex",
+    fill = "Sex") +
+  scale_shape_manual(name = "Sex",
+                     values = c("female" = 16, "male" = 17),
+                     labels = c("female"="Female", "male"="Male")) +
+  scale_color_manual(name="Sex",
+                     values = c("female"="#E1AF00", "male"="#78B7C5"),
+                     labels = c("female"="Female", "male"="Male")) +
+  scale_fill_manual(name="Sex",
+                     values = c("female"="#E1AF00", "male"="#78B7C5"),
+                     labels = c("female"="Female", "male"="Male")) +
+  theme_classic(base_size = 10, base_family = "sans") +
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+
+O.sex.size.plot.max
+
+
+
+### CTmin- sex and size
+# Extract observations used in the full model
+df.min <- model.frame(mod2d)
+
+# Generate predictions only within each observed species x sex size range
+pred.min <- df.min %>%
+  group_by(Species, Sex) %>%
+  reframe(
+    Size.mm = seq(
+      min(Size.mm),
+      max(Size.mm),
+      length.out = 50))
+
+# Construct fixed-effect design matrix
+X2 <- model.matrix(
+  delete.response(
+    terms(lme4::nobars(formula(mod2d)))),
+  data = pred.min)
+
+# Model coefficients and covariance matrix
+beta2 <- lme4::fixef(mod2d)
+V2 <- as.matrix(vcov(mod2d))
+
+X2 <- X2[, names(beta2), drop = FALSE]
+V2 <- V2[names(beta2), names(beta2), drop = FALSE]
+
+# Predicted means and approximate 95% confidence intervals
+pred.min$fit <- as.numeric(X2 %*% beta2)
+
+pred.min$SE <- sqrt(
+  rowSums((X2 %*% V2) * X2))
+
+pred.min$lower <- pred.min$fit - 1.96 * pred.min$SE
+pred.min$upper <- pred.min$fit + 1.96 * pred.min$SE
+
+# Plot
+O.sex.size.plot.min <- ggplot(df.min, aes(x = Size.mm, y = CTmin.C, color = Sex)) +
+  geom_point(aes(shape= Sex), alpha = 0.6, size = 2) +
+  geom_ribbon(data = pred.min, aes(
+    x = Size.mm,
+    ymin = lower,
+    ymax = upper,
+    fill = Sex,
+    group = Sex),
+    inherit.aes = FALSE,
+    alpha = 0.15) +
+  geom_line(
+    data = pred.min, aes(x = Size.mm, y = fit, color = Sex, group = Sex),
+    inherit.aes = FALSE,
+    linewidth = 1) +
+  facet_wrap(~ Species, scales = "free_x") +
+  scale_y_continuous(breaks = scales::pretty_breaks(n=6)) +
+  labs(
+    x = "Body size (mm)",
+    y = "CTmin (°C)",
+    color = "Sex",
+    fill = "Sex") +
+  scale_shape_manual(name = "Sex",
+                     values = c("female" = 16, "male" = 17),
+                     labels = c("female"="Female", "male"="Male")) +
+  scale_color_manual(name="Sex",
+                     values = c("female"="#E1AF00", "male"="#78B7C5"),
+                     labels = c("female"="Female", "male"="Male")) +
+  scale_fill_manual(name="Sex",
+                    values = c("female"="#E1AF00", "male"="#78B7C5"),
+                    labels = c("female"="Female", "male"="Male")) +
+  theme_classic(base_size = 10, base_family = "sans") +
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+
+O.sex.size.plot.min
+
+
+
+### Combining
+
+O.final.plot_sex.size<- ((O.sex.size.plot.max/O.sex.size.plot.min) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "a") & theme(legend.position = "bottom"))
+O.final.plot_sex.size
+
+#Save as tiff
+ggsave(
+  filename = "OnlineResource4_sex.size.tiff",
+  plot = O.final.plot_sex.size,
+  device = ragg::agg_tiff,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+#save as eps
+ggsave(
+  filename = "OnlineResource4_sex.size.eps",
+  plot = O.final.plot_sex.size,
+  device = cairo_ps,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+```
+
+
+### Total temp range
+
+```{r}
+
+O.dat.plot3 <- O.rawTempData %>%
+  mutate(
+    Sex.plot3 = case_when(
+      Sex == "male" ~ "Male",
+      Sex == "female" ~ "Female")) %>%
+  mutate(T.tot = CTmax.C - CTmin.C)
+
+O.range.plot <- ggplot(O.dat.plot3, aes(x = Sex.plot3, y = T.tot)) +
+  geom_rect(
+    data = subset(O.datTot, Species == "Sailfin"),
+    inherit.aes = FALSE,
+    xmin = -Inf, xmax = Inf,
+    ymin = -Inf, ymax = Inf,
+    fill = "grey95") +
+  geom_boxplot() +
+  geom_point(color= "#8D8680", size=2, alpha=0.5) +
+  facet_wrap(~ Species, scales = "free_x") +
+  theme_classic(base_size = 10, base_family = "sans") + 
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab("") +
+  ylab("Temperature range (\u00B0C) \n(CTmax-CTmin)")
+O.range.plot
+
+#Save as tiff
+ggsave(
+  filename = "OnlineResource4_species-range.tiff",
+  plot = O.range.plot,
+  device = ragg::agg_tiff,
+  width = 3.3, 
+  height = 4,          
+  units = "in",
+  dpi = 600)
+
+
+#Save as eps
+ggsave(
+  filename = "OnlineResource4_species-range.eps",
+  plot = O.range.plot,
+  device = cairo_ps,
+  width = 3.3, 
+  height = 4,          
+  units = "in",
+  dpi = 600)
+
+```
+
+### Swordtail emmeans
+
+```{r}
+
+### CTmax-EMM
+O.PW.df.maxSW <- as.data.frame(confint(PW.sw.max))
+
+O.SW.em.max <- ggplot(O.PW.df.maxSW, aes(x=Sex.plot, y=emmean)) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n=6)) +
+  coord_cartesian(ylim = c(34, 37)) +
+  ylab("Estimated mean CTmax (\u00B0C) \n") +
+  xlab("\n Sex category") +
+  ggtitle("CTmax") +
+  theme_classic(base_size = 10, base_family = "sans") + 
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+O.SW.em.max
+
+### CTmin-EMM
+O.PW.df.minSW <- as.data.frame(confint(PW.sw.min))
+
+O.SW.em.min <- ggplot(O.PW.df.minSW, aes(x=Sex.plot, y=emmean)) +
+  geom_point(size=2) +
+  geom_errorbar(aes(ymin=lower.CL, ymax=upper.CL), width=0.1) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  coord_cartesian(ylim = c(9, 11)) +
+  ylab("Estimated mean CTmin (\u00B0C) \n") +
+  xlab("\n Sex category") +
+  ggtitle("CTmin") +
+  theme_classic(base_size = 10, base_family = "sans") + 
+  theme(
+    axis.title.y = element_text(size = 10, family = "sans"), 
+    axis.text.y  = element_text(size = 10, family = "sans"),
+    axis.text.x  = element_text(size = 10, family = "sans"),
+    strip.text    = element_text(size = 10, family = "sans"))
+O.SW.em.min
+
+
+### Combining
+
+O.final.plot_em.sw <- ((O.SW.em.max + O.SW.em.min) + plot_layout(axis_titles = "collect") + plot_annotation(tag_levels = "a"))
+O.final.plot_em.sw
+
+#Save as tiff
+ggsave(
+  filename = "OnlineResource4_em-sw.tiff",
+  plot = O.final.plot_em.sw,
+  device = ragg::agg_tiff,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+
+#Save as eps
+ggsave(
+  filename = "OnlineResource4_em-sw.eps",
+  plot = O.final.plot_em.sw,
+  device = cairo_ps,
+  width = 6.85, 
+  height = 7,          
+  units = "in",
+  dpi = 600)
+
+```
+
+
+### Model diagnostics
+
+```{r}
+# ----------------------------------------------------------------------------------
+### CTmax & CTmin model selection ###
+# ----------------------------------------------------------------------------------
+max.sel <- model.sel(mod1, mod1b, mod1c, mod1d, mod1e, mod1f, mod1g)
+min.sel <- model.sel(mod2, mod2b, mod2c, mod2d, mod2e, mod2f, mod2g)
+
+prepare.sel <- function(sel, trait) {
+  as.data.frame(sel) %>%
+    tibble::rownames_to_column("Model") %>%
+    mutate(Trait = trait) %>%
+    select(Trait, Model, df, AICc, delta, weight)}
+
+sel.all <- bind_rows(
+  prepare.sel(min.sel, "CTmin"),
+  prepare.sel(max.sel, "CTmax")) %>%
+  mutate(Trait = factor(Trait, levels = c("CTmin", "CTmax"))) %>%
+  mutate(Model = dplyr::recode(
+    as.character(Model),
+    mod1 = "Species",
+    mod1b = "Species + Size",
+    mod1c = "Species + Sex",
+    mod1d = "Species + Size \n+Sex",
+    mod1e = "Species + \nSize * Sex",
+    mod1f = "Species * Sex \n+ Size",
+    mod1g = "Species * Size \n+ Sex",
+    mod2 = "Species",
+    mod2b = "Species + Size",
+    mod2c = "Species + Sex",
+    mod2d = "Species + Size \n+Sex",
+    mod2e = "Species + \nSize * Sex",
+    mod2f = "Species * Sex \n+ Size",
+    mod2g = "Species * Size \n+ Sex"))
+
+O.model.table <- sel.all %>%
+  gt(rowname_col = "Model", groupname_col = "Trait", row_group_as_column = TRUE) %>%
+  #tab_stubhead(label = "Model") %>%
+  cols_label(
+    Model = "Model",
+    df = "df",
+    AICc = "AICc",
+    delta = "ΔAICc",
+    weight = "Weight") %>%
+  fmt_number(columns = c(AICc, delta), decimals = 2) %>%
+  fmt_number(columns = weight, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(df, AICc, delta)))
+
+O.model.table
+
+gtsave(O.model.table, "OnlineResource4_model-sel.rtf")
+
+
+# ----------------------------------------------------------------------------------
+### CTmax & CTmin main model diagnostics ###
+# ----------------------------------------------------------------------------------
+
+library(DHARMa)
+
+# Simulate residuals once
+sim.max <- simulateResiduals(mod1, n = 1000)
+sim.min <- simulateResiduals(mod2, n = 1000)
+
+build_diagnostic_plot <- function() {
+  
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar))
+  
+  # Three rows, two columns
+  par(
+    mfrow = c(3, 2),
+    mar = c(4, 4, 3.5, 1),
+    cex = 0.75,
+    family = "sans")
+  
+  # A: CTmax QQ
+  plotQQunif(
+    sim.max,
+    main = "A. CTmax: species-only model checks")
+  
+  # B: CTmin QQ
+  plotQQunif(
+    sim.min,
+    main = "B. CTmin: species-only model checks")
+  
+  # C: CTmax residuals vs predicted
+  plotResiduals(sim.max)
+  
+  # D: CTmin residuals vs predicted
+  plotResiduals(sim.min)
+  
+  # E: CTmax residuals vs species
+  plotResiduals(sim.max, form = as.factor(model.frame(mod1)$Species))
+  
+  # F: CTmin residuals vs species
+  plotResiduals(sim.min, form = as.factor(model.frame(mod2)$Species))
+}
+
+# TIFF
+tiff(
+  "OnlineResource4_mainResidChecks.tiff",
+  width = 6.85,
+  height = 7,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  type = "cairo")
+build_diagnostic_plot()
+dev.off()
+
+# EPS
+
+cairo_ps(
+  "OnlineResource4_mainResidChecks.eps",
+  width = 6.85,
+  height = 7,
+  onefile = FALSE,
+  fallback_resolution = 600)
+build_diagnostic_plot()
+dev.off()
+
+# ----------------------------------------------------------------------------------
+### CTmax & CTmin alt model diagnostics ###
+# ----------------------------------------------------------------------------------
+
+# Simulate residuals 
+sim.size.max <- simulateResiduals(mod1b, n = 1000)
+sim.sex.max <- simulateResiduals(mod1c, n = 1000)
+sim.sss.max <- simulateResiduals(mod1d, n = 1000)
+sim.size.min <- simulateResiduals(mod2b, n = 1000)
+sim.sex.min <- simulateResiduals(mod2c, n = 1000)
+sim.sss.min <- simulateResiduals(mod2d, n = 1000)
+
+# ----------------------------
+#### SPECIES + SIZE MODEL ####
+# ----------------------------
+
+build_SIZEdiagnostic_plot <- function() {
+  
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar))
+  
+  # Four rows, two columns
+  par(
+    mfrow = c(4, 2),
+    mar = c(4, 4, 3.5, 1),
+    cex = 0.75,
+    family = "sans")
+  
+  # A: CTmax QQ
+  plotQQunif(
+    sim.size.max,
+    main = "A. CTmax: species+size model checks")
+  
+  # B: CTmin QQ
+  plotQQunif(
+    sim.size.min,
+    main = "B. CTmin: species+size model checks")
+  
+  # C: CTmax residuals vs predicted
+  plotResiduals(sim.size.max)
+  
+  # D: CTmin residuals vs predicted
+  plotResiduals(sim.size.min)
+  
+  # E: CTmax residuals vs species
+  plotResiduals(sim.size.max, form = as.factor(model.frame(mod1b)$Species))
+  
+  # F: CTmin residuals vs species
+  plotResiduals(sim.size.min, form = as.factor(model.frame(mod2b)$Species))
+  
+  # G: CTmax residuals vs size
+  plotResiduals(sim.size.max, form = model.frame(mod1b)$Size.mm)
+  
+  # H: CTmin residuals vs size
+  plotResiduals(sim.size.min, form = model.frame(mod2b)$Size.mm)
+}
+
+# TIFF
+tiff(
+  "OnlineResource4_SizemodResidChecks.tiff",
+  width = 6.85,
+  height = 7,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  type = "cairo")
+build_SIZEdiagnostic_plot()
+dev.off()
+
+# EPS
+
+cairo_ps(
+  "OnlineResource4_SizemodResidChecks.eps",
+  width = 6.85,
+  height = 7,
+  onefile = FALSE,
+  fallback_resolution = 600)
+build_SIZEdiagnostic_plot()
+dev.off()
+
+# ---------------------------
+#### SPECIES + SEX MODEL ####
+# ---------------------------
+
+build_SEXdiagnostic_plot <- function() {
+  
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar))
+  
+  # Four rows, two columns
+  par(
+    mfrow = c(4, 2),
+    mar = c(4, 4, 3.5, 1),
+    cex = 0.75,
+    family = "sans")
+  
+  # A: CTmax QQ
+  plotQQunif(
+    sim.sex.max,
+    main = "A. CTmax: species+sex model checks")
+  
+  # B: CTmin QQ
+  plotQQunif(
+    sim.sex.min,
+    main = "B. CTmin: species+sex model checks")
+  
+  # C: CTmax residuals vs predicted
+  plotResiduals(sim.sex.max)
+  
+  # D: CTmin residuals vs predicted
+  plotResiduals(sim.sex.min)
+  
+  # E: CTmax residuals vs species
+  plotResiduals(sim.sex.max, form = as.factor(model.frame(mod1c)$Species))
+  
+  # F: CTmin residuals vs species
+  plotResiduals(sim.sex.min, form = as.factor(model.frame(mod2c)$Species))
+  
+  # G: CTmax residuals vs sex
+  plotResiduals(sim.sex.max, form = as.factor(model.frame(mod1c)$Sex))
+  
+  # H: CTmin residuals vs sex
+  plotResiduals(sim.sex.min, form = as.factor(model.frame(mod2c)$Sex))
+}
+
+# TIFF
+tiff(
+  "OnlineResource4_SexmodResidChecks.tiff",
+  width = 6.85,
+  height = 7,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  type = "cairo")
+build_SEXdiagnostic_plot()
+dev.off()
+
+# EPS
+
+cairo_ps(
+  "OnlineResource4_SexmodResidChecks.eps",
+  width = 6.85,
+  height = 7,
+  onefile = FALSE,
+  fallback_resolution = 600)
+build_SEXdiagnostic_plot()
+dev.off()
+
+# -----------------------------------
+#### SPECIES + SIZE + SEX MODELS ####
+# -----------------------------------
+
+build_SSSdiagnostic_plot <- function() {
+  
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar))
+  
+  # Five rows, two columns
+  par(
+    mfrow = c(5, 2),
+    mar = c(4, 4, 3.5, 1),
+    cex = 0.75,
+    family = "sans")
+  
+  # A: CTmax QQ
+  plotQQunif(
+    sim.sss.max,
+    main = "A. CTmax: species+size+sex model checks")
+  
+  # B: CTmin QQ
+  plotQQunif(
+    sim.sss.min,
+    main = "B. CTmin: species+size+sex model checks")
+  
+  # C: CTmax residuals vs predicted
+  plotResiduals(sim.sss.max)
+  
+  # D: CTmin residuals vs predicted
+  plotResiduals(sim.sss.min)
+  
+  # E: CTmax residuals vs species
+  plotResiduals(sim.sss.max, form = as.factor(model.frame(mod1d)$Species))
+  
+  # F: CTmin residuals vs species
+  plotResiduals(sim.sss.min, form = as.factor(model.frame(mod2d)$Species))
+  
+  # G: CTmax residuals vs size
+  plotResiduals(sim.sss.max, form = model.frame(mod1d)$Size.mm)
+  
+  # H: CTmin residuals vs size
+  plotResiduals(sim.sss.min, form = model.frame(mod2d)$Size.mm)
+  
+  # I: CTmax residuals vs sex
+  plotResiduals(sim.sss.max, form = as.factor(model.frame(mod1d)$Sex))
+  
+  # J: CTmin residuals vs sex
+  plotResiduals(sim.sss.min, form = as.factor(model.frame(mod2d)$Sex))
+}
+
+# TIFF
+tiff(
+  "OnlineResource4_CombomodResidChecks.tiff",
+  width = 6.85,
+  height = 7,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  type = "cairo")
+build_SSSdiagnostic_plot()
+dev.off()
+
+# EPS
+
+cairo_ps(
+  "OnlineResource4_CombomodResidChecks.eps",
+  width = 6.85,
+  height = 7,
+  onefile = FALSE,
+  fallback_resolution = 600)
+build_SSSdiagnostic_plot()
+dev.off()
+
+# ----------------------------------------------------------------------------------
+### CTmax & CTmin swordtail model selection ###
+# ----------------------------------------------------------------------------------
+SW.max.sel <- model.sel(SWmod1, SWmod2, SWmod3)
+SW.min.sel <- model.sel(SWmod4, SWmod5, SWmod6)
+
+sel.sw <- bind_rows(
+  prepare.sel(SW.min.sel, "CTmin"),
+  prepare.sel(SW.max.sel, "CTmax")) %>%
+  mutate(Trait = factor(Trait, levels = c("CTmin", "CTmax"))) %>%
+  mutate(Model = dplyr::recode(
+    as.character(Model),
+    SWmod1 = "Sex category",
+    SWmod2 = "Sex category + Size",
+    SWmod3 = "Sex category * Size",
+    SWmod4 = "Sex category",
+    SWmod5 = "Sex category + Size",
+    SWmod6 = "Sex category * Size"))
+
+O.SW.model.table <- sel.sw %>%
+  gt(rowname_col = "Model", groupname_col = "Trait", row_group_as_column = TRUE) %>%
+  #tab_stubhead(label = "Model") %>%
+  cols_label(
+    Model = "Model",
+    df = "df",
+    AICc = "AICc",
+    delta = "ΔAICc",
+    weight = "Weight") %>%
+  fmt_number(columns = c(AICc, delta), decimals = 2) %>%
+  fmt_number(columns = weight, decimals = 3) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "lightgray", weight = px(1.5)),
+    locations = cells_body(columns = c(df, AICc, delta)))
+
+O.SW.model.table
+
+gtsave(O.SW.model.table, "OnlineResource4_SWmodel-sel.rtf")
+
+# ----------------------------------------------------------------------------------
+### Swordtail model diagnostics ###
+# ----------------------------------------------------------------------------------
+
+
+# Simulate residuals once
+SW.sim.max <- simulateResiduals(SWmod1, n = 1000)
+SW.sim.min <- simulateResiduals(SWmod4, n = 1000)
+
+build_SWdiagnostic_plot <- function() {
+  
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar))
+  
+  # Three rows, two columns
+  par(
+    mfrow = c(3, 2),
+    mar = c(4, 4, 3.5, 1),
+    cex = 0.75,
+    family = "sans")
+  
+  # A: CTmax QQ
+  plotQQunif(
+    SW.sim.max,
+    main = "A. CTmax: sex category model checks")
+  
+  # B: CTmin QQ
+  plotQQunif(
+    SW.sim.min,
+    main = "B. CTmin: sex category model checks")
+  
+  # C: CTmax residuals vs predicted
+  plotResiduals(SW.sim.max)
+  
+  # D: CTmin residuals vs predicted
+  plotResiduals(SW.sim.min)
+  
+  # E: CTmax residuals vs species
+  plotResiduals(SW.sim.max, form = as.factor(model.frame(SWmod1)$Sex.plot))
+  
+  # F: CTmin residuals vs species
+  plotResiduals(SW.sim.min, form = as.factor(model.frame(SWmod2)$Sex.plot))
+}
+
+# TIFF
+tiff(
+  "OnlineResource4_SWResidChecks.tiff",
+  width = 6.85,
+  height = 7,
+  units = "in",
+  res = 600,
+  compression = "lzw",
+  type = "cairo")
+build_SWdiagnostic_plot()
+dev.off()
+
+# EPS
+
+cairo_ps(
+  "OnlineResource4_SWResidChecks.eps",
+  width = 6.85,
+  height = 7,
+  onefile = FALSE,
+  fallback_resolution = 600)
+build_SWdiagnostic_plot()
+dev.off()
 
 
 
 
-
-
+```
 
 
 

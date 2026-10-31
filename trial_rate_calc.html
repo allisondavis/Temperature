@@ -1561,25 +1561,11 @@ head(rates)</code></pre>
 ## 5 NA  NA  NA    
 ## 6 NA  NA  NA</code></pre>
 <pre class="r"><code># OPTION 2: load from Github repository
-rates &lt;- curl(&quot;https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/rate_calc.csv&quot;)
+#rates &lt;- curl(&quot;https://raw.githubusercontent.com/allisondavis/Temperature/refs/heads/main/rate_calc.csv&quot;)
+#rates &lt;- read.csv(rates, header = TRUE, sep = &quot;,&quot;, stringsAsFactors = TRUE)
+#head(rates)
 
-rates &lt;- read.csv(rates, header = TRUE, sep = &quot;,&quot;, stringsAsFactors = TRUE)
-head(rates)</code></pre>
-<pre><code>##   Trial   Species  Size       Date     Rate                             file.id
-## 1   max  gambusia  &lt;NA&gt; 11/28/2023 0.284479       adavis_ctmax_gambusia_28NOV23
-## 2   max   sailfin  &lt;NA&gt;  12/2/2023 0.233267         adavis_ctmax_sailfin_2DEC23
-## 3   max   sailfin  &lt;NA&gt; 11/19/2023 0.169185        adavis_ctmax_sailfin_19NOV23
-## 4   max swordtail large 11/16/2023 0.277966          adavis_ctmax_swdlg_16NOV23
-## 5   max  gambusia  &lt;NA&gt; 11/10/2023 0.256028 mckelvey_ctmax_mosquitofish_10nov23
-## 6   max  gambusia  &lt;NA&gt; 11/17/2023 0.280690 mckelvey_ctmax_mosquitofish_17nov23
-##    X X.1 X.2 X.3
-## 1 NA  NA  NA    
-## 2 NA  NA  NA    
-## 3 NA  NA  NA    
-## 4 NA  NA  NA    
-## 5 NA  NA  NA    
-## 6 NA  NA  NA</code></pre>
-<pre class="r"><code># One trial (Gambusia, CTmin, 7 Nov 23) only captured part of the excel sheet, so the rate calculated does not reflect the whole trial. We will remove this trial.
+# One trial (Gambusia, CTmin, 7 Nov 23) only captured part of the excel sheet, so the rate calculated does not reflect the whole trial. We will remove this trial.
 
 rates &lt;- rates[-c(24),]
 
@@ -1643,16 +1629,20 @@ trial.rates2</code></pre>
 </div>
 <div id="normality" class="section level2">
 <h2>Normality</h2>
-<p><strong>Results:</strong> Despite normality, we will use
-non-parametric tests for our subsequent comparisons due to a small
-sample size (16 trials in CTmax and 14 trials in CTmin).</p>
+<p><strong>Results:</strong> Normal, but the sample sizes are so small,
+so this result is tentative. Will perform a sensitivity analysis to
+determine if our results rely on individual trials.</p>
 <pre class="r"><code>#check normality
 normal &lt;- rates %&gt;%
   group_by(Trial, Species) %&gt;%
 summarize(statistic =shapiro.test(Rate)$statistic,
           p.value = shapiro.test(Rate)$p.value)</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;Trial&#39;. You can override using the
-## `.groups` argument.</code></pre>
+<pre><code>## `summarise()` has regrouped the output.
+## ℹ Summaries were computed grouped by Trial and Species.
+## ℹ Output is grouped by Trial.
+## ℹ Use `summarise(.groups = &quot;drop_last&quot;)` to silence this message.
+## ℹ Use `summarise(.by = c(Trial, Species))` for per-operation grouping
+##   (`?dplyr::dplyr_by`) instead.</code></pre>
 <pre class="r"><code>normal #normal for all trials and all species</code></pre>
 <pre><code>## # A tibble: 6 × 4
 ## # Groups:   Trial [2]
@@ -1685,34 +1675,44 @@ hist.min</code></pre>
 trails met a rate of -0.3°C/minute. Will do this for all trails first,
 then repeat within species.</p>
 <pre class="r"><code># All CTmax and all CTmin trials
-wilcox.test(max.rates$Rate, mu=0.3) #significant (p&lt;0.001)</code></pre>
+t.test(max.rates$Rate, mu=0.3) #significant (p=0.001)</code></pre>
 <pre><code>## 
-##  Wilcoxon signed rank exact test
+##  One Sample t-test
 ## 
 ## data:  max.rates$Rate
-## V = 1, p-value = 6.104e-05
-## alternative hypothesis: true location is not equal to 0.3</code></pre>
-<pre class="r"><code>wilcox.test(min.rates$Rate, mu=-0.3) #significant (p&lt;0.001)</code></pre>
+## t = -3.8798, df = 15, p-value = 0.001481
+## alternative hypothesis: true mean is not equal to 0.3
+## 95 percent confidence interval:
+##  0.2526875 0.2862393
+## sample estimates:
+## mean of x 
+## 0.2694634</code></pre>
+<pre class="r"><code>t.test(min.rates$Rate, mu=-0.3) #significant (p&lt;0.001)</code></pre>
 <pre><code>## 
-##  Wilcoxon signed rank exact test
+##  One Sample t-test
 ## 
 ## data:  min.rates$Rate
-## V = 105, p-value = 0.0001221
-## alternative hypothesis: true location is not equal to -0.3</code></pre>
+## t = 67.606, df = 13, p-value &lt; 2.2e-16
+## alternative hypothesis: true mean is not equal to -0.3
+## 95 percent confidence interval:
+##  -0.10366113 -0.09069887
+## sample estimates:
+## mean of x 
+##  -0.09718</code></pre>
 <pre class="r"><code># CTmax by species
 wt &lt;- max.rates %&gt;%
   group_by(Species) %&gt;%
-  summarize(statistic =wilcox.test(Rate, mu=0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=0.3)$p.value)
+  summarize(statistic =t.test(Rate, mu=0.3)$statistic,
+          p.value = t.test(Rate, mu=0.3)$p.value)
 
 wt</code></pre>
 <pre><code>## # A tibble: 3 × 3
-##   Species      statistic p.value
-##   &lt;fct&gt;            &lt;dbl&gt;   &lt;dbl&gt;
-## 1 Swordtail            0  0.0313
-## 2 Sailfin              0  0.0625
-## 3 Mosquitofish         1  0.125</code></pre>
-<pre class="r"><code>### Only swordtail CTmax trial rates differed from 0.3degC/min (p=0.031).
+##   Species      statistic   p.value
+##   &lt;fct&gt;            &lt;dbl&gt;     &lt;dbl&gt;
+## 1 Swordtail       -11.8  0.0000774
+## 2 Sailfin          -2.08 0.106    
+## 3 Mosquitofish     -1.92 0.127</code></pre>
+<pre class="r"><code>### Only swordtail CTmax trial rates differed from 0.3degC/min (p&lt;0.001).
 
 
 
@@ -1720,64 +1720,69 @@ wt</code></pre>
 # CTmin by species
 wt2 &lt;- min.rates %&gt;%
   group_by(Species) %&gt;%
-  summarize(statistic =wilcox.test(Rate, mu=-0.3)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.3)$p.value) 
+  summarize(statistic =t.test(Rate, mu=-0.3)$statistic,
+          p.value = t.test(Rate, mu=-0.3)$p.value) 
 
 wt2</code></pre>
 <pre><code>## # A tibble: 3 × 3
-##   Species      statistic p.value
-##   &lt;fct&gt;            &lt;dbl&gt;   &lt;dbl&gt;
-## 1 Swordtail           21  0.0313
-## 2 Sailfin             15  0.0625
-## 3 Mosquitofish         6  0.25</code></pre>
-<pre class="r"><code>### Only swordtail CTmin trial rates differed from -0.3degC/min (p=0.031).</code></pre>
+##   Species      statistic     p.value
+##   &lt;fct&gt;            &lt;dbl&gt;       &lt;dbl&gt;
+## 1 Swordtail         43.3 0.000000124
+## 2 Sailfin           55.3 0.000000641
+## 3 Mosquitofish      77.5 0.000166</code></pre>
+<pre class="r"><code>### all species&#39; CTmin trial rates differed from -0.3degC/min (p&lt;0.001 for all).</code></pre>
 <p><strong>Alternative CTmin rate</strong></p>
 <p>Due to the difficulties in reaching a -0.3°C/min rate, a common
 alternative rate for CTmin trials is -0.1°C/min. We will repeat the
 comparisons above but with a -0.1°C/min rate instead.</p>
 <pre class="r"><code># All CTmin trials
-wilcox.test(min.rates$Rate, mu=-0.1) #not significant (p=0.502)</code></pre>
+t.test(min.rates$Rate, mu=-0.1) #not significant (p=0.364)</code></pre>
 <pre><code>## 
-##  Wilcoxon signed rank exact test
+##  One Sample t-test
 ## 
 ## data:  min.rates$Rate
-## V = 64, p-value = 0.5016
-## alternative hypothesis: true location is not equal to -0.1</code></pre>
+## t = 0.94, df = 13, p-value = 0.3644
+## alternative hypothesis: true mean is not equal to -0.1
+## 95 percent confidence interval:
+##  -0.10366113 -0.09069887
+## sample estimates:
+## mean of x 
+##  -0.09718</code></pre>
 <pre class="r"><code># CTmin by species
 wt3 &lt;- min.rates %&gt;%
   group_by(Species) %&gt;%
-  summarize(statistic =wilcox.test(Rate, mu=-0.1)$statistic,
-          p.value = wilcox.test(Rate, mu=-0.1)$p.value) 
+  summarize(statistic =t.test(Rate, mu=-0.1)$statistic,
+          p.value = t.test(Rate, mu=-0.1)$p.value) 
 
 wt3</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   Species      statistic p.value
 ##   &lt;fct&gt;            &lt;dbl&gt;   &lt;dbl&gt;
-## 1 Swordtail           16   0.313
-## 2 Sailfin             14   0.125
-## 3 Mosquitofish         0   0.25</code></pre>
+## 1 Swordtail         1.20  0.283 
+## 2 Sailfin           1.90  0.131 
+## 3 Mosquitofish     -4.13  0.0540</code></pre>
 <pre class="r"><code>### No CTmin rates in any species differ from -0.1degC/min.</code></pre>
 </div>
 <div id="differences-between-species" class="section level2">
 <h2>Differences between species</h2>
-<p>Since swordtail trails differed from the target rate but not
-mosquitofish and sailfin, we wanted to compare the rates among the
-species to see if they differed from each other.</p>
-<pre class="r"><code>kruskal.test(Rate~Species, data=max.rates) #not significant (p=0.295)</code></pre>
+<p>Since we detected differences from the target rate, we wanted to
+compare the rates among the species to see if they differed from each
+other.</p>
+<pre class="r"><code>oneway.test(Rate~Species, data=max.rates) #not significant (p=0.390)</code></pre>
 <pre><code>## 
-##  Kruskal-Wallis rank sum test
+##  One-way analysis of means (not assuming equal variances)
 ## 
-## data:  Rate by Species
-## Kruskal-Wallis chi-squared = 2.4397, df = 2, p-value = 0.2953</code></pre>
-<pre class="r"><code>kruskal.test(Rate~Species, data=min.rates) #significant (p=0.034)</code></pre>
+## data:  Rate and Species
+## F = 1.114, num df = 2.0000, denom df = 5.7654, p-value = 0.3899</code></pre>
+<pre class="r"><code>oneway.test(Rate~Species, data=min.rates) #significant (p=0.012)</code></pre>
 <pre><code>## 
-##  Kruskal-Wallis rank sum test
+##  One-way analysis of means (not assuming equal variances)
 ## 
-## data:  Rate by Species
-## Kruskal-Wallis chi-squared = 6.7886, df = 2, p-value = 0.03356</code></pre>
+## data:  Rate and Species
+## F = 8.7254, num df = 2.0000, denom df = 7.2928, p-value = 0.01162</code></pre>
 <pre class="r"><code># Since CTmin rates did differ between the species, we will perform pairwise comparisons using a Benjamini-Hochberg p adjustment.
 
-pw &lt;- pairwise.wilcox.test(min.rates$Rate, min.rates$Species, p.adjust.method = &quot;BH&quot;)
+pw &lt;- pairwise.t.test(min.rates$Rate, min.rates$Species, pool.sd = FALSE, p.adjust.method = &quot;holm&quot;)
 
 pw_df &lt;- pw$p.value %&gt;%
   as.data.frame() %&gt;%
@@ -1792,10 +1797,70 @@ pw_df</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   group1       group2     p_adj
 ##   &lt;chr&gt;        &lt;chr&gt;      &lt;dbl&gt;
-## 1 Mosquitofish Sailfin   0.0536
-## 2 Mosquitofish Swordtail 0.0536
-## 3 Sailfin      Swordtail 0.662</code></pre>
-<pre class="r"><code>### Looks like mosquitofish CTmin trials are marginally (p=0.054) different than sailfin and swordtail. </code></pre>
+## 1 Mosquitofish Sailfin   0.0257
+## 2 Mosquitofish Swordtail 0.0437
+## 3 Sailfin      Swordtail 0.822</code></pre>
+<pre class="r"><code>### Looks like mosquitofish CTmin trials are significantly different than sailfin (p=0.026) and swordtail (p=0.044). </code></pre>
+</div>
+<div id="sensitivity-analysis" class="section level2">
+<h2>Sensitivity analysis</h2>
+<p><strong>To target rate</strong></p>
+<pre class="r"><code>loo.target &lt;- rates %&gt;%
+  group_by(Trial, Species) %&gt;%
+  group_modify( ~ {
+    x &lt;- .x$Rate
+    goal &lt;- if(.y$Trial == &quot;CTmax&quot;) 0.3 else -0.3
+    
+    loo.p &lt;- sapply(seq_along(x), function (i) { t.test(x[-i], mu = goal)$p.value})
+    loo.mean &lt;- sapply(seq_along(x), function(i) { mean(x[-i])})
+    
+    tibble(
+      n = length(x),
+      full.p = t.test(x, mu=goal)$p.value,
+      min.loo.p = min(loo.p),
+      max.loo.p = max(loo.p),
+      min.loo.mean = min(loo.mean),
+      max.loo.mean = max(loo.mean)) }) %&gt;%
+  ungroup()
+
+loo.target</code></pre>
+<pre><code>## # A tibble: 6 × 8
+##   Trial Species          n  full.p min.loo.p max.loo.p min.loo.mean max.loo.mean
+##   &lt;fct&gt; &lt;fct&gt;        &lt;int&gt;   &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;        &lt;dbl&gt;        &lt;dbl&gt;
+## 1 CTmin Swordtail        6 1.24e-7   9.04e-8   3.75e-6      -0.0987      -0.0922
+## 2 CTmin Sailfin          5 6.41e-7   5.38e-6   2.80e-5      -0.0960      -0.0901
+## 3 CTmin Mosquitofish     3 1.66e-4   8.44e-4   1.28e-2      -0.111       -0.108 
+## 4 CTmax Swordtail        6 7.74e-5   1.52e-4   6.59e-4       0.271        0.274 
+## 5 CTmax Sailfin          5 1.06e-1   1.25e-1   2.35e-1       0.242        0.273 
+## 6 CTmax Mosquitofish     5 1.27e-1   5.02e-2   2.49e-1       0.277        0.291</code></pre>
+<p><strong>Among species</strong></p>
+<pre class="r"><code>loo.spp &lt;- rates %&gt;%
+  group_by(Trial) %&gt;%
+  group_modify(~ {
+    df &lt;- .x
+    
+    full.p &lt;- oneway.test(df$Rate~df$Species, var.equal=FALSE)$p.value
+    
+    loo.p &lt;- sapply(seq_len(nrow(df)), function (i) {
+      sub.rate &lt;- df$Rate[-i]
+      sub.spp &lt;- df$Species[-i]
+      
+      oneway.test(sub.rate~sub.spp, var.equal = FALSE)$p.value})
+    
+    tibble(
+      Trial = df$Trial[1],
+      full.p = full.p,
+      min.loo.p = min(loo.p),
+      max.loo.p = max(loo.p)) }) %&gt;%
+  ungroup()</code></pre>
+<pre><code>## Warning: Unknown or uninitialised column: `Trial`.
+## Unknown or uninitialised column: `Trial`.</code></pre>
+<pre class="r"><code>loo.spp</code></pre>
+<pre><code>## # A tibble: 2 × 4
+##   Trial full.p min.loo.p max.loo.p
+##   &lt;fct&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+## 1 CTmin 0.0116   0.00579    0.0549
+## 2 CTmax 0.390    0.105      0.612</code></pre>
 </div>
 </div>
 <div id="summary" class="section level1">
@@ -1803,19 +1868,33 @@ pw_df</code></pre>
 <p><strong>Trial rates compared to set rate</strong></p>
 <p>The goal rate for both CTmax and CTmin trials was +/- 0.3°C/min. Both
 CTmax and CTmin trials were significantly different than the target
-rate. When separated by species, only swordtail CTmax and CTmin trials
-were significantly different than the target rate.</p>
+rate. When separated by species, only swordtails differed in CTmax
+trials and all species differed in CTmin trials compared to the the
+target rate.</p>
 <p>When using the alternate CTmin rate of -0.1°C/min, there were no
 significant differences for any species.</p>
+<p>A leave-one-out sensitivity analysis indicated that the significance
+of differences between observed and target ramping rates was unchanged
+by the exclusion of any individual trial.</p>
 <hr />
 <p><strong>Rates among species</strong></p>
 <p>We also compared rates among the species to determine if one species
 experienced a significantly different rate compared to the others,
 regardless of target rate. We did not find any differences for CTmax
 trials but did find a significant difference in CTmin trials. When
-followed up with a pairwise test (with a Benjamini-Hochberg p
-adjustment), we see that mosquitofish trials are marginally different
-than sailfin and swordtail (p=0.054).</p>
+followed up with a pairwise test (with a Holm p adjustment), we see that
+mosquitofish trials are significantly different than sailfin and
+swordtail.</p>
+<p>A leave-one-out sensitivity analysis resulted in similar conclusions
+for the CTmax trials, but did indicate that the CTmin results are
+sensitive to the exclusion of individual trials. This is likely because
+mosquitofish had fewer trials (3 trials) compared to sailfin (6 trials)
+and swordtails (5 trials).</p>
+<p><strong>Conclusions</strong> As ramping rates differed from the
+target rate, and among the species, we will include trial run id
+(i.e. file.id) in our models. This will account for the differences we
+see here, as well as the dependence of individuals within the same
+trial.</p>
 <hr />
 <hr />
 <hr />
