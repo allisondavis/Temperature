@@ -1,6 +1,6 @@
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────────────────────────────
-###### MANUSCRIPT TABLES AND FIGURES ######   NOTE: must run all Rmd files prior to this script
+###### MANUSCRIPT TABLES AND FIGURES ######   
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 # NOTE: specific Rmd files needed to run each table/figure are noted in individual headers
@@ -377,7 +377,7 @@ gtsave(power.an, "Table7_power-analysis.rtf")
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 
-### Used to imbed fonts
+### Used to embed fonts
 #install.packages("ragg")
 library(ragg)
 #install.packages("systemfonts")
@@ -949,7 +949,7 @@ gtsave(extreme.table, "OnlineResource2_extreme-rates-austin.rtf")
 
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
-## Online Resource 3 (run Final_temperature-analysis. Rmd before processing tables/figures below)
+## Online Resource 3 & 4 (run Final_temperature-analysis. Rmd before processing tables/figures below)
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 
 # ----------------------------------------------------------------------------------
@@ -1052,7 +1052,7 @@ build_diagnostic_plot <- function() {
 
 # TIFF
 tiff(
-  "OR3_mainResidChecks.tiff",
+  "OnlineResource4_mainResidChecks.tiff",
   width = 6.85,
   height = 7,
   units = "in",
@@ -1065,7 +1065,7 @@ dev.off()
 # EPS
 
 cairo_ps(
-  "OR3_mainResidChecks.eps",
+  "OnlineResource4_mainResidChecks.eps",
   width = 6.85,
   height = 7,
   onefile = FALSE,
@@ -1132,7 +1132,7 @@ build_SIZEdiagnostic_plot <- function() {
 
 # TIFF
 tiff(
-  "OR3_SizemodResidChecks.tiff",
+  "OnlineResource4_SizemodResidChecks.tiff",
   width = 6.85,
   height = 7,
   units = "in",
@@ -1145,7 +1145,7 @@ dev.off()
 # EPS
 
 cairo_ps(
-  "OR3_SizemodResidChecks.eps",
+  "OnlineResource4_SizemodResidChecks.eps",
   width = 6.85,
   height = 7,
   onefile = FALSE,
@@ -1200,7 +1200,7 @@ build_SEXdiagnostic_plot <- function() {
 
 # TIFF
 tiff(
-  "OR3_SexmodResidChecks.tiff",
+  "OnlineResource4_SexmodResidChecks.tiff",
   width = 6.85,
   height = 7,
   units = "in",
@@ -1213,7 +1213,7 @@ dev.off()
 # EPS
 
 cairo_ps(
-  "OR3_SexmodResidChecks.eps",
+  "OnlineResource4_SexmodResidChecks.eps",
   width = 6.85,
   height = 7,
   onefile = FALSE,
@@ -1274,7 +1274,7 @@ build_SSSdiagnostic_plot <- function() {
 
 # TIFF
 tiff(
-  "OR3_CombomodResidChecks.tiff",
+  "OnlineResource4_CombomodResidChecks.tiff",
   width = 6.85,
   height = 7,
   units = "in",
@@ -1287,7 +1287,7 @@ dev.off()
 # EPS
 
 cairo_ps(
-  "OR3_CombomodResidChecks.eps",
+  "OnlineResource4_CombomodResidChecks.eps",
   width = 6.85,
   height = 7,
   onefile = FALSE,
@@ -1379,7 +1379,7 @@ build_SWdiagnostic_plot <- function() {
 
 # TIFF
 tiff(
-  "OR3_SWResidChecks.tiff",
+  "OnlineResource4_SWResidChecks.tiff",
   width = 6.85,
   height = 7,
   units = "in",
@@ -1392,7 +1392,7 @@ dev.off()
 # EPS
 
 cairo_ps(
-  "OR3_SWResidChecks.eps",
+  "OnlineResource4_SWResidChecks.eps",
   width = 6.85,
   height = 7,
   onefile = FALSE,
@@ -1402,7 +1402,7 @@ dev.off()
 
 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
-## Online Resource 4 
+## Online Resource 5 
 # ───────────────────────────────────────────────────────────────────────────────────────────────
 
 # Figures and tables for the outlier-removed analyses can be produced in Rerun-outlier-removal.Rmd

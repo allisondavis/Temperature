@@ -13,23 +13,15 @@ AUTHORS: Sophia E. McKelvey, Cassidy Hawk, Eric N. Iverson, Michael J. Ryan, and
 
 ### **EXPERIMENTAL OVERVIEW:**
 
-**Purpose:** Our interest lies in whether sex-biased temperature tolerance exists in 3 livebearing fishes: sailfin mollies (*Poecilia latipinna*), Western mosquitofish (*Gambusia affinis*), and Panuco swordtails (*Xiphophorous nigrensis*). This stems from an observation of males dying when sampling during hot months but females surviving fine. 
+**Purpose:** Our interest lies in whether sex-biased temperature tolerance exists in 3 livebearing fishes with sexual size dimorphism: sailfin mollies (*Poecilia latipinna*), Western mosquitofish (*Gambusia affinis*), and Panuco swordtails (*Xiphophorous nigrensis*). This stems from an observation of males dying when sampling during hot months but females surviving fine. 
 
 **Main Aims:**
 
-(1) compare female and male thermal tolerance across these three species of livebearing fishes (Family: Poeciliidae)
+(1) compare the effects of sex, size and their interaction on thermal tolerance across these three species of livebearing fishes (Family: Poeciliidae)
 
-(2) compare thermal tolerance across mating strategies within a single livebearing species (*X. nigrensis*)
+(2) compare thermal tolerance across male morphs within a single livebearing species (*X. nigrensis*)
 
-**Hypothesis:** Preexisting sex differences (e.g. sexually selected traits, size, behavior etc.) decrease resistance to environmental temperature change.
-
-**Predictions:**
-
-  - Males of fish with elaborate traits have a narrower thermal tolerance--i.e. lower thermal maximums and higher thermal minimums--compared to females of these species.
-
-  - Males of fish without elaborate traits will have a similar tolerance to females of the same species.
-
-  - Males with traits used in courtship (i.e. bright coloration and elongated fins) have a narrower thermal tolerance compared to males that use coercion (within swordtails).
+**Hypothesis:** Preexisting sex differences (e.g. size) decrease resistance to environmental temperature change.
 
 ***
 ***
@@ -40,10 +32,10 @@ AUTHORS: Sophia E. McKelvey, Cassidy Hawk, Eric N. Iverson, Michael J. Ryan, and
   Daily climatology analyses and associated datasets
 
 * **Trial Rates/**
-  Trial temperature rate calculations
+  Trial ramping rate calculations
 
 * **Thermal Tolerance Analysis/**
-  Primary statistical analyses of sex differences in thermal tolerance
+  Primary statistical analyses of sex and size differences in thermal tolerance
 
 * **Outlier Removed Analysis/**
   Re-analysis excluding major outliers
@@ -69,11 +61,12 @@ AUTHORS: Sophia E. McKelvey, Cassidy Hawk, Eric N. Iverson, Michael J. Ryan, and
    * *Austin-Daily-Temps.Rmd*
    * *trial_rate_calc.Rmd*
    * *Final_temperature-analysis.Rmd*
-   * *Rerun-outlier-removal.Rmd*
 
    prior to running:
 
    * *manuscript_figures-tables.R*
+   
+   Note: one figure (Fig S1) requires *Rerun-outlier-removal.Rmd*; may overwrite data/values from *Final_temperature-analysis.Rmd* in the environment.
 
 5. All file paths are relative and should function provided the original folder structure is maintained.
 
@@ -111,7 +104,7 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
       - 343: data via National Oceanic and Atmospheric Administration Surface Weather Observation
     
     
-**2. Trial Rates:** calculating the temperature rate increase and decrease achieved in our trials to compare to the desired goal rate of our automatic Arduino system (± 0.3°C/minute)
+**2. Trial Rates:** calculating the ramping rate achieved in our trials to compare to the desired goal rate of our automatic Arduino system (± 0.3°C/minute)
     
   \- *trial_rate_calc.Rmd* 
   
@@ -126,12 +119,12 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
 | Rate | temperature rate calculated from original excel file | °C/min |
 | file.id | name of original Excel file | NA |
 
-   * Note: size is pertinent only to swordtails, in which males were categorized as small or large; all other individuals (including female swordtails) marked as NA
+   * Note: size in this data set refers to a trial's size category, which is pertinent only to swordtails as males were categorized as small or large; all other individuals (including female swordtails) marked as NA
 
    * Note: temperature rate calculation can be found on the first sheet of the original excel file
    
 
-**3. Thermal Tolerance Analysis:** overall analysis testing for sex differences in thermal tolerance between three Poeciliid fish species
+**3. Thermal Tolerance Analysis:** overall analysis testing for sex and size differences in thermal tolerance between three Poeciliid fish species
     
   \- *Final_temperature-analysis.Rmd*
   
@@ -140,7 +133,6 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
 | VARIABLE | DEFINITION | UNIT/OPTIONS |
 | :--- | :--- | :--- | 
 | Species | Poeciliid species of interest | X. nigrensis/G. affinis/P. latipinna |
-| Mating | Mating style (if present) | courting/coercive/NA |
 | Size.cat | Size category (for male swordtails) | large/small/reg |
 | Sex | Sex of individual | male/female |
 | Name | Name chosen for tracking individuals | NA |
@@ -148,11 +140,12 @@ The four folders correspond to the four analyses used in this study (all Rmd fil
 | CTmin.num | Number given when fish is removed in CTmin trials | 1-9 |
 | CTmax.C | Temperature of tank at loss of equilibrium in CTmax trials | °C |
 | CTmin.C | Temperature of tank at loss of equilibrium in CTmin trials | °C |
-| T.tot | CTmax.C temperature - CTmin.C temperature (total thermal range) | °C |
 | Size.mm | Standard length of individual | mm |
+| file.id.max | file name associated with CTmax trial run | NA |
+| file.id.min | file name associated with CTmin trial run | NA |
 
 
-**4. Outlier Removed Analysis:** a re-run of the overall analysis testing for sex differences in thermal tolerance between three Poeciliid fish species without major outliers
+**4. Outlier Removed Analysis:** a re-run of the overall analysis testing for sex and size differences in thermal tolerance between three Poeciliid fish species without major outliers
     
   \- *Rerun-outlier-removal.Rmd*
   
@@ -184,28 +177,31 @@ An additional folder -- **Extras** -- contains the raw excel files corresponding
 ### **VERSION & PACKAGE INFORMATION**
 
 All Rmd files list required packages at the beginning of the document. Below are all packages required to run all Rmd files.
+NOTE: packages required for *Rerun-outlier-removal.Rmd* are equivalent to *Final_temperature-analysis.Rmd*
 
 | PACKAGE/SOFTWARE | VERSION | USED IN |
 | :--- | :--- | :--- | 
-| Rstudio running R | v2026.01.0+392/ v4.4.2 | All Rmd files | 
-| `curl` | v5.2.1 | All Rmd files | 
-| `dplyr` | v1.1.4 | All Rmd files | 
+| Rstudio running R | v4.6.1 | All Rmd files | 
+| `curl` | v7.1.0 | All Rmd files | 
+| `dplyr` | v1.2.1 | All Rmd files | 
 | `tidyr` | v1.3.2 | All Rmd files | 
-| `ggplot2` | v3.5.1 | All Rmd files | 
-| `gt` | v0.11.1 | All Rmd files |
-| `lubridate` | v1.9.3 | *Austin-Daily-Temps.Rmd* |
-| `summarytools` | v1.1.4 | *trial_rate_calc.Rmd*/ *Final_temperature-analysis.Rmd* |
-| `MuMIn` | v1.48.4 | *Final_temperature-analysis.Rmd* | 
-| `lmtest` | v3.1.3 | *Final_temperature-analysis.Rmd* | 
-| `sandwich` | v3.1-1 | *Final_temperature-analysis.Rmd* | 
-| `ggpubr` | v0.6.2 | *Final_temperature-analysis.Rmd* |
-| `DHARMa` | v0.4.7 | *Final_temperature-analysis.Rmd* | 
-| `emmeans` | v1.10.5 | *Final_temperature-analysis.Rmd* | 
-| `car` | v3.1-2 | *Final_temperature-analysis.Rmd* | 
+| `ggplot2` | v4.0.3 | All Rmd files | 
+| `gt` | v1.3.0 | All Rmd files |
+| `lubridate` | v1.9.5 | *Austin-Daily-Temps.Rmd* |
+| `summarytools` | v1.1.5 | *trial_rate_calc.Rmd*/ *Final_temperature-analysis.Rmd* |
+| `MuMIn` | v1.48.19 | *Final_temperature-analysis.Rmd* | 
+| `lmerTest` | v3.2-1 | *Final_temperature-analysis.Rmd* | 
+| `clubSandwich` | v3.1-1 | *Final_temperature-analysis.Rmd* | 
+| `ggpubr` | v0.6.3 | *Final_temperature-analysis.Rmd* |
+| `DHARMa` | v0.5.0 | *Final_temperature-analysis.Rmd*/ *manuscript_figures-tables.R* | 
+| `emmeans` | v2.0.3 | *Final_temperature-analysis.Rmd* | 
+| `car` | v3.1-5 | *Final_temperature-analysis.Rmd* | 
 | `patchwork` | v1.3.2 | *Final_temperature-analysis.Rmd* | 
-| `tibble` | v3.3.1 | *manuscript_figures-tables.R* | 
-| `ragg` | v1.5.0 | *manuscript_figures-tables.R* | 
-| `systemfonts` | v1.3.1 | *manuscript_figures-tables.R* | 
+| `tibble` | v3.3.1 | *Final_temperature-analysis.Rmd*/ *manuscript_figures-tables.R* | 
+| `ragg` | v1.5.2 | *manuscript_figures-tables.R* | 
+| `systemfonts` | v1.3.2 | *manuscript_figures-tables.R* | 
+| `lme4` | v2.0-1 | *manuscript_figures-tables.R* | 
+| `scales` | v1.4.0 | *manuscript_figures-tables.R* | 
 
 
 
